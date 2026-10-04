@@ -1021,9 +1021,8 @@
         let detectedAudioMeta = [];
         let detectedSubMeta = [];
         let activeAudioIdx = 0;
-        let activeSubIdx = -1; // OFF by default
+        let activeSubIdx = -1; 
 
-        // Auto Extract Track Metadata (Fallback for non-HLS)
         function inferTracksFromFilename(name) {
             const lower = (name || '').toLowerCase();
             const audios = [];
@@ -1052,12 +1051,14 @@
 
         function initPlayer() {
             errorScreen.classList.add('hidden');
-            if (!FILE_URL) {
+            console.log('HLS supported:', window.Hls && Hls.isSupported(), 'FILE_URL:', FILE_URL);
+
+            if (!FILE_URL || FILE_URL.includes('{{')) {
                 videoLoader.classList.add('hidden');
+                console.error("FILE_URL is empty or unresolved.");
                 return;
             }
             
-            // Universal Welcome Popup check
             if (sessionStorage.getItem('advisory_shown')) {
                 const welcomePopup = document.getElementById('welcome-popup');
                 if (welcomePopup) welcomePopup.classList.remove('active');
@@ -1068,7 +1069,16 @@
             videoLoader.classList.remove('hidden');
             showCenterControls(false);
 
-            if (FILE_URL.endsWith('.m3u8') && window.Hls && Hls.isSupported()) {
+            // M3U8 string parser logic with query parameter support 
+            let isM3U8 = false;
+            try {
+                const u = new URL(FILE_URL, window.location.origin);
+                isM3U8 = u.pathname.endsWith('.m3u8');
+            } catch(e) {
+                isM3U8 = FILE_URL.split('?')[0].endsWith('.m3u8');
+            }
+
+            if (isM3U8 && window.Hls && Hls.isSupported()) {
                 const hls = new Hls({ 
                     maxBufferLength: 120, 
                     maxMaxBufferLength: 600, 
@@ -1085,21 +1095,28 @@
                 });
                 window.hlsInstance = hls;
 
-                // Extract Audio/Subtitle Tracks directly from native HLS Metadata
+                hls.on(Hls.Events.MEDIA_ATTACHED, function () {
+                    console.log('HLS Media Attached, loading source now...');
+                    hls.loadSource(FILE_URL);
+                });
+
                 hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
+                    console.log('Manifest Parsed. Attempting Play...');
                     if (hls.audioTracks && hls.audioTracks.length > 0) {
                         detectedAudioMeta = hls.audioTracks.map((t, idx) => t.name || t.language || `Track ${idx + 1}`);
                     }
                     if (hls.subtitleTracks && hls.subtitleTracks.length > 0) {
                         detectedSubMeta = hls.subtitleTracks.map((t, idx) => t.name || t.language || `Sub ${idx + 1}`);
                     }
+                    video.play().catch(e => {
+                        console.warn("Autoplay blocked by browser policy. User tap required:", e);
+                        showCenterControls(true);
+                    });
                 });
-
-                hls.loadSource(FILE_URL);
-                hls.attachMedia(video);
                 
                 let hlsRetryCount = 0;
                 hls.on(Hls.Events.ERROR, function (event, data) {
+                    console.error('HLS ERROR:', data.type, data.details);
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
@@ -1123,9 +1140,18 @@
                         }
                     }
                 });
+                
+                hls.attachMedia(video);
             } else {
+                console.log('Loading Native Playback...');
                 video.src = FILE_URL;
                 video.load();
+                video.addEventListener('loadedmetadata', () => {
+                    video.play().catch(e => {
+                        console.warn("Native Autoplay blocked:", e);
+                        showCenterControls(true);
+                    });
+                });
             }
         }
 
@@ -1161,22 +1187,9 @@
 
         let stallTimer;
         function handleStall() {
+            console.log("Video Network Buffer Stalled/Waiting.");
             videoLoader.classList.remove('hidden');
             showCenterControls(false);
-            clearTimeout(stallTimer);
-            stallTimer = setTimeout(() => {
-                if (video.networkState === video.NETWORK_LOADING || video.readyState < video.HAVE_FUTURE_DATA) {
-                    const currentTime = video.currentTime;
-                    video.load();
-                    
-                    if (video.fastSeek) {
-                        video.fastSeek(currentTime);
-                    } else {
-                        video.currentTime = currentTime;
-                    }
-                    video.play().catch(() => {});
-                }
-            }, 1200);
         }
 
         video.addEventListener('waiting', handleStall);
@@ -1882,6 +1895,9 @@
                 });
             }
         };
+
+        // FINAL FIX: INITIATE PLAYER
+        initPlayer();
     </script>
 </body>
 </html>
