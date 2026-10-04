@@ -47,20 +47,31 @@ LANG_MAP = {
 
 STREAM_METADATA_CACHE = {}
 
+def extract_fallback_from_name(filename):
+    lower = str(filename or "").lower()
+    audios = []
+    for k, v in LANG_MAP.items():
+        if re.search(r'\b' + re.escape(k) + r'\b', lower) and v not in audios:
+            audios.append(v)
+    subs = []
+    if any(w in lower for w in ['sub', 'esub', 'subs']):
+        subs = [f"{a} [SDH]" if "sdh" in lower else a for a in audios] if audios else ["English"]
+    return {
+        "audios": audios if audios else ["Default Audio"],
+        "subs": subs if subs else ["Embedded Subtitles (MKV Track)"]
+    }
+
 def clean_track_name(raw_title, raw_lang, track_type, index, fallback_filename=""):
     raw_title = str(raw_title or "").strip()
     raw_lang = str(raw_lang or "").strip().lower()
     fallback_filename = str(fallback_filename or "").lower()
 
     is_sdh = bool(re.search(r'\b(sdh|cc|hearing impaired)\b', raw_title, re.IGNORECASE))
-
     detected_lang = None
 
-    # 1. Direct language code match
     if raw_lang in LANG_MAP:
         detected_lang = LANG_MAP[raw_lang]
 
-    # 2. Check title against whitelist
     if not detected_lang and raw_title:
         title_lower = raw_title.lower()
         for k, v in LANG_MAP.items():
@@ -68,14 +79,12 @@ def clean_track_name(raw_title, raw_lang, track_type, index, fallback_filename="
                 detected_lang = v
                 break
 
-    # 3. Jugad: If language is undefined / missing in MKV, check movie filename
     if not detected_lang and fallback_filename:
         for k, v in LANG_MAP.items():
             if re.search(r'\b' + re.escape(k) + r'\b', fallback_filename):
                 detected_lang = v
                 break
 
-    # 4. Fallback if completely unknown
     if not detected_lang:
         detected_lang = f"{'Audio' if track_type == 'audio' else 'Subtitle'} {index}"
 
@@ -84,17 +93,19 @@ def clean_track_name(raw_title, raw_lang, track_type, index, fallback_filename="
 
     return detected_lang
 
-async def probe_stream_metadata(stream_url, file_name=""):
-    if stream_url in STREAM_METADATA_CACHE:
-        return STREAM_METADATA_CACHE[stream_url]
+async def probe_stream_metadata(local_stream_url, file_name=""):
+    if local_stream_url in STREAM_METADATA_CACHE:
+        return STREAM_METADATA_CACHE[local_stream_url]
 
+    # Ultra-optimized ffprobe: shudhu audio & sub scan korbe, video skip korbe
     cmd = [
-        "ffprobe", "-v", "quiet",
-        "-print_format", "json",
-        "-show_streams",
-        "-probesize", "3000000",
-        "-analyzeduration", "3000000",
-        stream_url
+        "ffprobe", "-v", "error",
+        "-select_streams", "a:s",
+        "-show_entries", "stream=index,codec_type:stream_tags=language,title",
+        "-of", "json",
+        "-probesize", "2000000",
+        "-analyzeduration", "2000000",
+        local_stream_url
     ]
 
     try:
@@ -103,7 +114,7 @@ async def probe_stream_metadata(stream_url, file_name=""):
             stdout=asyncio.subprocess.PIPE,
             stderr=asyncio.subprocess.PIPE
         )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=3.5)
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=8.0)
         probe = json.loads(stdout.decode('utf-8'))
 
         audios = []
@@ -125,15 +136,21 @@ async def probe_stream_metadata(stream_url, file_name=""):
                 subs.append(clean_name)
                 s_idx += 1
 
-        res = {
-            "audios": audios if audios else ["Default Audio"],
-            "subs": subs
-        }
-        STREAM_METADATA_CACHE[stream_url] = res
+        if not audios and not subs:
+            res = extract_fallback_from_name(file_name)
+        else:
+            res = {
+                "audios": audios if audios else ["Default Audio"],
+                "subs": subs if subs else ["Embedded Subtitles (MKV Track)"]
+            }
+
+        STREAM_METADATA_CACHE[local_stream_url] = res
         return res
     except Exception as e:
-        logger.warning(f"Fast ffprobe skipped/timed out: {e}")
-        return {"audios": ["Default Audio"], "subs": []}
+        logger.warning(f"Fast ffprobe timed out ({e}), using filename fallback")
+        res = extract_fallback_from_name(file_name)
+        STREAM_METADATA_CACHE[local_stream_url] = res
+        return res
 
 @routes.get("/favicon.ico")
 async def favicon_route_handler(request):
@@ -164,11 +181,10 @@ async def watch_handler(request: web.Request):
 
         html_content = await render_page(id, secure_hash)
 
-        # Build stream URL for zero-load probe
-        stream_url = f"{request.scheme}://{request.host}/{secure_hash}{id}"
-        meta = await probe_stream_metadata(stream_url)
+        # Internal localhost connection (Bypasses Domain/Hairpin NAT Timeout)
+        local_stream_url = f"http://127.0.0.1:{info.PORT}/{secure_hash}{id}"
+        meta = await probe_stream_metadata(local_stream_url)
 
-        # Seamless injection into HTML (Zero Template Breakage)
         script_inject = f"""
         <script>
             window.__SERVER_AUDIOS__ = {json.dumps(meta['audios'])};
