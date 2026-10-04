@@ -400,19 +400,6 @@
         }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        #error-screen {
-            position: absolute;
-            inset: 0;
-            z-index: 45;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background: rgba(2, 4, 10, 0.94);
-            backdrop-filter: blur(16px);
-            padding: 1rem;
-        }
-        #error-screen.hidden { display: none !important; }
-
         .glass-popup-backdrop {
             position: fixed;
             inset: 0;
@@ -542,23 +529,6 @@
                     <div class="loader"></div>
                 </div>
 
-                <!-- OTT Codec Notice Screen -->
-                <div id="error-screen" class="hidden">
-                    <div class="glass-panel p-5 max-w-xs sm:max-w-sm w-full text-center border-sapphire/30 shadow-[0_20px_50px_rgba(0,0,0,0.95)]">
-                        <div class="w-11 h-11 rounded-full bg-sapphire/15 text-sapphire flex items-center justify-center mx-auto mb-2.5 border border-sapphire/40">
-                            <i class="fas fa-satellite-dish text-base"></i>
-                        </div>
-                        <h4 class="font-bold text-xs sm:text-sm text-white font-['Outfit'] mb-1">Advanced Codec Notice</h4>
-                        <p class="text-gray-400 text-[11px] leading-relaxed mb-4">
-                            If audio is silent or video buffers on heavy x265, launch below in VLC or MX Player for full hardware decoding.
-                        </p>
-                        <div class="flex gap-2">
-                            <button onclick="retryPlayback()" class="flex-1 py-2 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold transition">Retry</button>
-                            <button onclick="launchApp('vlc')" class="flex-1 py-2 bg-gradient-to-r from-sapphire to-cobalt text-black rounded-xl text-xs font-extrabold transition">VLC Player</button>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- Double-Tap Skip Zones -->
                 <div class="double-tap-zone dt-left" id="dt-left">
                     <div class="minimal-skip-pill" id="skip-left"><i class="fas fa-backward text-[10px]"></i> 10s</div>
@@ -647,7 +617,6 @@
 
         <!-- Primary Action Grid (Classic Cyan Theme) -->
         <div class="grid grid-cols-3 gap-2 sm:gap-3 mb-5 w-full">
-            <!-- Download Button restored to open popup exactly as uploaded -->
             <button onclick="openPopup('download-popup')" class="ott-btn-primary py-2.5 px-2 sm:p-3.5 flex items-center justify-center gap-2">
                 <i class="fas fa-download text-sapphire text-xs sm:text-sm"></i>
                 <span class="font-bold text-[11px] sm:text-xs text-white truncate">Fast Download</span>
@@ -665,7 +634,7 @@
             </button>
         </div>
 
-        <!-- External Players Section (Exact 8 App Cards Maintained) -->
+        <!-- External Players Section -->
         <div class="mb-3 w-full">
             <div class="flex items-center gap-2.5 mb-2.5 px-1">
                 <div class="h-px flex-grow bg-white/10"></div>
@@ -775,6 +744,21 @@
     <!-- ROOT TOP-LAYER MODALS -->
     <div id="global-modal-layer">
 
+        <!-- ERROR SCREEN (Moved to Top Layer) -->
+        <div id="error-screen" class="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(0,0,0,0.88)] backdrop-blur-[18px] p-4 hidden">
+            <div class="glass-panel p-6 max-w-sm w-full text-center border-red-500/30 rounded-2xl bg-[rgba(10,16,30,0.7)] shadow-[0_20px_60px_rgba(0,0,0,0.9)]">
+                <div class="w-12 h-12 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center mx-auto mb-3 border border-red-500/40">
+                    <i class="fas fa-circle-exclamation text-xl"></i>
+                </div>
+                <h4 class="font-bold text-sm text-white font-['Outfit'] mb-1">Playback Interrupted</h4>
+                <p class="text-gray-400 text-xs leading-relaxed mb-4">Stream connection dropped or codec unsupported by browser. Try reconnecting or launch in external player.</p>
+                <div class="flex gap-2">
+                    <button onclick="retryPlayback()" class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold transition active:scale-95">Retry</button>
+                    <button onclick="launchApp('vlc')" class="flex-1 py-2.5 bg-sapphire/20 hover:bg-sapphire/30 text-sapphire border border-sapphire/40 rounded-xl text-xs font-bold transition active:scale-95">VLC Play</button>
+                </div>
+            </div>
+        </div>
+
         <!-- AUDIO ALERT POPUP -->
         <div id="audio-alert-popup" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
             <div class="glass-popup-card p-5 sm:p-6 border-violet/40">
@@ -830,7 +814,7 @@
             </div>
         </div>
 
-        <!-- 2. Resume Stream Modal (Matching Master Template) -->
+        <!-- 2. Resume Stream Modal -->
         <div id="resume-modal" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
             <div class="glass-popup-card p-5 sm:p-6 border-sapphire/30">
                 <div class="flex justify-between items-center mb-3">
@@ -857,7 +841,7 @@
             </div>
         </div>
 
-        <!-- 3. Download Options Popup (Original Download Modal Intact) -->
+        <!-- 3. Download Options Popup -->
         <div id="download-popup" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
             <div class="glass-popup-card p-5 sm:p-6">
                 <div class="flex justify-between items-center mb-3">
@@ -872,7 +856,6 @@
                         <i class="fas fa-copy"></i>
                         <span>Copy Link for ADM / 1DM / FDM</span>
                     </button>
-                    <!-- Instant Download Button linked to dl=1 -->
                     <button onmouseenter="prefetchDownload(this)" onclick="directBrowserDownload()" class="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-gray-200 text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                         <i class="fas fa-globe"></i>
                         <span>Download via Browser</span>
@@ -892,7 +875,7 @@
             </div>
         </div>
 
-        <!-- 5. Aspect Ratio Popup (16:9, 21:9, Crop to Fill, Fit) -->
+        <!-- 5. Aspect Ratio Popup -->
         <div id="aspect-popup" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
             <div class="glass-popup-card p-5">
                 <div class="flex justify-between items-center mb-3.5">
@@ -977,6 +960,7 @@
         const FILE_URL = resolveWorkingStreamUrl(RAW_FILE_URL);
         const isMobile = /Android|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1);
 
+        // Preconnect & Fetch for Instant Download
         function addPreconnect(url) {
             try {
                 const urlObj = new URL(url);
@@ -989,14 +973,17 @@
         if (FILE_URL) addPreconnect(FILE_URL);
 
         function prefetchDownload(elem) {
-            if (!elem.hasAttribute('data-prefetched') && FILE_URL) {
+            if (elem && elem.hasAttribute && !elem.hasAttribute('data-prefetched') && FILE_URL) {
                 const dlUrl = RAW_FILE_URL + (RAW_FILE_URL.includes('?') ? '&' : '?') + 'dl=1';
-                fetch(dlUrl, { method: 'HEAD', mode: 'no-cors' }).catch(() => {});
+                fetch(dlUrl, { method: 'HEAD', mode: 'no-cors', priority: 'high' }).catch(() => {});
                 elem.setAttribute('data-prefetched', 'true');
             }
         }
+        // Auto trigger head fetch for smooth instant download
+        setTimeout(() => prefetchDownload(document.createElement('div')), 1000);
 
         const video = document.getElementById('video-player');
+        video.preload = "auto"; // Ensuring auto preload is active
         const playerContainer = document.getElementById('player-container');
         const globalModalLayer = document.getElementById('global-modal-layer');
         const customSubOverlay = document.getElementById('custom-sub-overlay');
@@ -1046,7 +1033,7 @@
                 if (lower.includes('kor')) { subs.push('Korean'); foundSubLang = true; }
                 
                 if (!foundSubLang) {
-                    subs.push('English'); // Default fallback without 'Embedded' text
+                    subs.push('English'); 
                 }
             }
             detectedSubMeta = subs;
@@ -1082,29 +1069,38 @@
             }
 
             if (isM3U8 && window.Hls && Hls.isSupported()) {
+                // Ultimate Jugad HLS Config for x265 smooth stream and Instant Play
                 const hls = new Hls({ 
                     maxBufferLength: 120, 
                     maxMaxBufferLength: 600, 
-                    maxBufferSize: 150 * 1000 * 1000, 
-                    maxBufferHole: 0.3, 
-                    lowLatencyMode: false,
-                    progressive: true, 
-                    startLevel: -1,
+                    maxBufferSize: 0, 
+                    maxBufferHole: 0.5, 
+                    highBufferWatchdogPeriod: 1,
+                    nudgeOffset: 0.1,
+                    nudgeMaxRetry: 10,
+                    maxFragLookUpTolerance: 0.25,
                     enableWorker: true, 
-                    fragLoadingMaxRetry: 10, 
-                    retryDelay: 800, 
-                    fragLoadingTimeOut: 15000,
-                    manifestLoadingTimeOut: 15000 
+                    enableSoftwareAES: true,
+                    progressive: true, 
+                    lowLatencyMode: false,
+                    backBufferLength: 90,
+                    fragLoadingTimeOut: 20000,
+                    fragLoadingMaxRetry: 6,
+                    autoStartLoad: true,
+                    startFragPrefetch: true,
+                    startLevel: -1,
+                    capLevelToPlayerSize: true,
+                    // Jitter integration for handling 50+ concurrent users properly
+                    fragLoadingRetryDelay: 1000, 
+                    manifestLoadingRetryDelay: 1000
                 });
                 window.hlsInstance = hls;
 
                 hls.on(Hls.Events.MEDIA_ATTACHED, function () {
-                    console.log('HLS Media Attached, loading source now...');
                     hls.loadSource(FILE_URL);
                 });
 
                 hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
-                    console.log('Manifest Parsed. Attempting Play...');
                     if (hls.audioTracks && hls.audioTracks.length > 0) {
                         detectedAudioMeta = hls.audioTracks.map((t, idx) => t.name || t.language || `Track ${idx + 1}`);
                     }
@@ -1122,14 +1118,16 @@
                 
                 let hlsRetryCount = 0;
                 hls.on(Hls.Events.ERROR, function (event, data) {
-                    console.error('HLS ERROR:', data.type, data.details);
                     if (data.fatal) {
                         switch (data.type) {
                             case Hls.ErrorTypes.NETWORK_ERROR:
-                                if (data.response && data.response.code === 429 && hlsRetryCount < 4) {
-                                    let delay = 800 * Math.pow(2, hlsRetryCount);
+                                // Ultimate 429 Telegram Bypass Exponential Backoff with Jitter
+                                if (data.response && data.response.code === 429) {
+                                    let jitter = Math.floor(Math.random() * 500); 
+                                    let delay = 1000 * Math.pow(1.5, hlsRetryCount) + jitter;
                                     hlsRetryCount++;
-                                    showToast("Reconnecting...");
+                                    if(hlsRetryCount > 6) hlsRetryCount = 1;
+                                    showToast("Network busy, reconnecting...");
                                     setTimeout(() => {
                                         hls.startLoad();
                                     }, delay);
@@ -1149,12 +1147,10 @@
                 
                 hls.attachMedia(video);
             } else {
-                console.log('Loading Native Playback...');
                 video.src = FILE_URL;
                 video.load();
                 video.addEventListener('loadedmetadata', () => {
                     video.play().catch(e => {
-                        console.warn("Native Autoplay blocked:", e);
                         showCenterControls(true);
                     });
                 });
@@ -1193,9 +1189,16 @@
 
         let stallTimer;
         function handleStall() {
-            console.log("Video Network Buffer Stalled/Waiting.");
             videoLoader.classList.remove('hidden');
             showCenterControls(false);
+            clearTimeout(stallTimer);
+            // 400ms Debounce handle waiting
+            stallTimer = setTimeout(() => {
+                if (video.networkState === video.NETWORK_LOADING || video.readyState < video.HAVE_FUTURE_DATA) {
+                    if (window.hlsInstance) window.hlsInstance.recoverMediaError();
+                    video.play().catch(() => {});
+                }
+            }, 400);
         }
 
         video.addEventListener('waiting', handleStall);
@@ -1203,11 +1206,8 @@
         
         let lastSeekingTime = 0;
         video.addEventListener('seeking', () => { 
-            const now = Date.now();
-            if (now - lastSeekingTime < 500) return;
-            lastSeekingTime = now;
-
             videoLoader.classList.remove('hidden'); 
+            // Instant load on skip for smooth no-buffering jugad
             if (window.hlsInstance) {
                 window.hlsInstance.startLoad(video.currentTime);
             }
@@ -1370,15 +1370,17 @@
                     }
                 }
                 if (nativeSubs.length > 0) {
-                    detectedSubMeta = nativeSubs; // override filename guessing with real tracks
+                    detectedSubMeta = nativeSubs;
                 }
             }
 
-            // Check for resume
+            // Fixed Resume logic - Video immediately pauses in background until user decides
             const savedPos = localStorage.getItem(SAVED_POS_KEY);
             if (savedPos && parseFloat(savedPos) > 10) {
                 document.getElementById('resume-time').textContent = formatTime(parseFloat(savedPos));
                 if (!document.getElementById('welcome-popup').classList.contains('active')) {
+                    video.pause();
+                    wasPlayingBeforePopup = true; 
                     openPopup('resume-modal');
                 }
             }
@@ -1435,7 +1437,6 @@
         timelineContainer.addEventListener('touchmove', (e) => { if (isDragging) updateTimeline(e.touches[0]); }, {passive: true});
         timelineContainer.addEventListener('touchend', () => { isDragging = false; });
 
-        // Volume Controls
         const volSlider = document.getElementById('volume-slider');
         const btnMute = document.getElementById('btn-mute');
         const volIcon = document.getElementById('vol-icon');
@@ -1451,7 +1452,6 @@
             volIcon.className = video.muted ? 'fas fa-volume-mute text-sapphire' : 'fas fa-volume-up';
         });
 
-        // Keyboard Shortcuts
         window.addEventListener('keydown', (e) => {
             if (document.querySelector('.glass-popup-backdrop.active')) return;
             switch(e.code) {
@@ -1489,7 +1489,6 @@
             }
         });
 
-        // Persistent Orientation Toggle
         let isLandscapeMode = false;
         async function youtubeStyleLandscapeToggle(e) {
             if (e) e.stopPropagation();
@@ -1570,7 +1569,6 @@
             else if (document.pictureInPictureEnabled) video.requestPictureInPicture();
         });
 
-        // Modal Open / Close with Auto-Resume Feature
         function openPopup(id) {
             const hasOpen = document.querySelector('.glass-popup-backdrop.active');
             wasPlayingBeforePopup = (!video.paused && !video.ended);
@@ -1623,7 +1621,6 @@
             }
         }
 
-        // Playback Speed Options
         const speeds = [0.5, 0.75, 1, 1.25, 1.5, 2];
         let currentSpeed = 1;
         const speedOptionsContainer = document.getElementById('speed-options');
@@ -1650,7 +1647,6 @@
         }
         renderSpeedButtons();
 
-        // Aspect Ratio Handler
         function setAspect(mode, btnElem) {
             if (mode === '16/9') {
                 video.style.objectFit = 'contain';
@@ -1676,7 +1672,6 @@
             showToast(`Aspect Ratio: ${mode}`);
         }
 
-        // Subtitle Cue Parser
         function bindSubtitleCueRenderer() {
             if (!video.textTracks) return;
             for (let i = 0; i < video.textTracks.length; i++) {
@@ -1692,7 +1687,6 @@
             }
         }
 
-        // FAKE SUBTITLE SWITCHER LOGIC
         function openSubPopup() {
             const subList = document.getElementById('sub-track-list');
             subList.innerHTML = '';
@@ -1736,7 +1730,6 @@
             openPopup('sub-popup');
         }
 
-        // FAKE AUDIO TRACK SWITCHER LOGIC
         function openAudioPopup() {
             const list = document.getElementById('audio-track-list');
             list.innerHTML = '';
@@ -1765,7 +1758,6 @@
             openPopup('audio-popup');
         }
 
-        // INSTANT DOWNLOAD
         function copyDownloadLink() {
             if (!FILE_URL) return;
             navigator.clipboard.writeText(RAW_FILE_URL).then(() => {
@@ -1790,7 +1782,6 @@
             fallbackBtn.setAttribute('download', FILE_NAME);
             fallbackBtn.setAttribute('rel', 'noopener'); 
 
-            // Auto force download popup instantly
             const dlLink = document.createElement('a');
             dlLink.href = dlUrl;
             dlLink.setAttribute('download', FILE_NAME);
@@ -1839,7 +1830,6 @@
             showToast("Searching for Cast devices on your Wi-Fi...");
         }
 
-        // External Player Launcher
         function launchApp(type) {
             if (!RAW_FILE_URL) {
                 showToast("Stream URL required");
@@ -1927,7 +1917,6 @@
             }
         };
 
-        // FINAL FIX: INITIATE PLAYER
         initPlayer();
     </script>
 </body>
