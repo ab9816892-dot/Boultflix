@@ -3,6 +3,8 @@ import re
 import math
 import logging
 import mimetypes
+import asyncio
+import json
 from aiohttp.http_exceptions import BadStatusLine
 from dreamxbotz.Bot import multi_clients, work_loads
 from dreamxbotz.server.exceptions import FIleNotFound, InvalidHash
@@ -13,6 +15,125 @@ import info
 logger = logging.getLogger(__name__)
 
 routes = web.RouteTableDef()
+
+# --- WORLD LANGUAGE WHITELIST & DICTIONARY ---
+LANG_MAP = {
+    "hin": "Hindi", "hindi": "Hindi",
+    "eng": "English", "english": "English",
+    "ben": "Bengali", "bengali": "Bengali", "bangla": "Bengali",
+    "tam": "Tamil", "tamil": "Tamil",
+    "tel": "Telugu", "telugu": "Telugu",
+    "mal": "Malayalam", "malayalam": "Malayalam",
+    "kan": "Kannada", "kannada": "Kannada",
+    "mar": "Marathi", "marathi": "Marathi",
+    "guj": "Gujarati", "gujarati": "Gujarati",
+    "pan": "Punjabi", "pun": "Punjabi", "punjabi": "Punjabi",
+    "urd": "Urdu", "urdu": "Urdu",
+    "jpn": "Japanese", "jap": "Japanese", "japanese": "Japanese",
+    "kor": "Korean", "korean": "Korean",
+    "spa": "Spanish", "spanish": "Spanish",
+    "fre": "French", "fra": "French", "french": "French",
+    "ger": "German", "deu": "German", "german": "German",
+    "rus": "Russian", "russian": "Russian",
+    "chi": "Chinese", "zho": "Chinese", "chinese": "Chinese",
+    "ara": "Arabic", "arabic": "Arabic",
+    "ita": "Italian", "italian": "Italian",
+    "por": "Portuguese", "portuguese": "Portuguese",
+    "tha": "Thai", "thai": "Thai",
+    "vie": "Vietnamese", "vietnamese": "Vietnamese",
+    "ind": "Indonesian", "indonesian": "Indonesian",
+    "tur": "Turkish", "turkish": "Turkish"
+}
+
+STREAM_METADATA_CACHE = {}
+
+def clean_track_name(raw_title, raw_lang, track_type, index, fallback_filename=""):
+    raw_title = str(raw_title or "").strip()
+    raw_lang = str(raw_lang or "").strip().lower()
+    fallback_filename = str(fallback_filename or "").lower()
+
+    is_sdh = bool(re.search(r'\b(sdh|cc|hearing impaired)\b', raw_title, re.IGNORECASE))
+
+    detected_lang = None
+
+    # 1. Direct language code match
+    if raw_lang in LANG_MAP:
+        detected_lang = LANG_MAP[raw_lang]
+
+    # 2. Check title against whitelist
+    if not detected_lang and raw_title:
+        title_lower = raw_title.lower()
+        for k, v in LANG_MAP.items():
+            if re.search(r'\b' + re.escape(k) + r'\b', title_lower):
+                detected_lang = v
+                break
+
+    # 3. Jugad: If language is undefined / missing in MKV, check movie filename
+    if not detected_lang and fallback_filename:
+        for k, v in LANG_MAP.items():
+            if re.search(r'\b' + re.escape(k) + r'\b', fallback_filename):
+                detected_lang = v
+                break
+
+    # 4. Fallback if completely unknown
+    if not detected_lang:
+        detected_lang = f"{'Audio' if track_type == 'audio' else 'Subtitle'} {index}"
+
+    if is_sdh and track_type == 'subtitle' and "[SDH]" not in detected_lang:
+        return f"{detected_lang} [SDH]"
+
+    return detected_lang
+
+async def probe_stream_metadata(stream_url, file_name=""):
+    if stream_url in STREAM_METADATA_CACHE:
+        return STREAM_METADATA_CACHE[stream_url]
+
+    cmd = [
+        "ffprobe", "-v", "quiet",
+        "-print_format", "json",
+        "-show_streams",
+        "-probesize", "3000000",
+        "-analyzeduration", "3000000",
+        stream_url
+    ]
+
+    try:
+        proc = await asyncio.create_subprocess_exec(
+            *cmd,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE
+        )
+        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=3.5)
+        probe = json.loads(stdout.decode('utf-8'))
+
+        audios = []
+        subs = []
+        a_idx, s_idx = 1, 1
+
+        for s in probe.get("streams", []):
+            c_type = s.get("codec_type")
+            tags = s.get("tags", {})
+            title = tags.get("title", "")
+            lang = tags.get("language", "")
+
+            if c_type == "audio":
+                clean_name = clean_track_name(title, lang, "audio", a_idx, file_name)
+                audios.append(clean_name)
+                a_idx += 1
+            elif c_type == "subtitle":
+                clean_name = clean_track_name(title, lang, "subtitle", s_idx, file_name)
+                subs.append(clean_name)
+                s_idx += 1
+
+        res = {
+            "audios": audios if audios else ["Default Audio"],
+            "subs": subs
+        }
+        STREAM_METADATA_CACHE[stream_url] = res
+        return res
+    except Exception as e:
+        logger.warning(f"Fast ffprobe skipped/timed out: {e}")
+        return {"audios": ["Default Audio"], "subs": []}
 
 @routes.get("/favicon.ico")
 async def favicon_route_handler(request):
@@ -40,7 +161,23 @@ async def watch_handler(request: web.Request):
         else:
             id = int(re.search(r"(\d+)(?:\/\S+)?", path).group(1))
             secure_hash = request.rel_url.query.get("hash")
-        return web.Response(text=await render_page(id, secure_hash), content_type='text/html')
+
+        html_content = await render_page(id, secure_hash)
+
+        # Build stream URL for zero-load probe
+        stream_url = f"{request.scheme}://{request.host}/{secure_hash}{id}"
+        meta = await probe_stream_metadata(stream_url)
+
+        # Seamless injection into HTML (Zero Template Breakage)
+        script_inject = f"""
+        <script>
+            window.__SERVER_AUDIOS__ = {json.dumps(meta['audios'])};
+            window.__SERVER_SUBS__ = {json.dumps(meta['subs'])};
+        </script>
+        """
+        html_content = html_content.replace("</head>", f"{script_inject}\n</head>")
+
+        return web.Response(text=html_content, content_type='text/html')
     except InvalidHash as e:
         raise web.HTTPForbidden(text=e.message)
     except FIleNotFound as e:
@@ -83,21 +220,36 @@ async def stream_handler(request: web.Request):
 
 async def media_streamer(request: web.Request, id: int, secure_hash: str):
     range_header = request.headers.get("Range", None)
-
-    # 💥 INSTANT DOWNLOAD CHECK
     is_download = request.rel_url.query.get("dl") == "1"
 
-    index = min(work_loads, key=work_loads.get)
-    faster_client = multi_clients[index]
+    client_indices = sorted(work_loads.keys(), key=lambda k: work_loads[k])
+    file_id = None
+    tg_connect = None
+    active_client_idx = 0
 
-    if faster_client in class_cache:
-        tg_connect = class_cache[faster_client]
-    else:
-        tg_connect = ByteStreamer(faster_client)
-        class_cache[faster_client] = tg_connect
+    for idx in client_indices:
+        candidate_client = multi_clients.get(idx)
+        if not candidate_client:
+            continue
+        try:
+            if candidate_client in class_cache:
+                connector = class_cache[candidate_client]
+            else:
+                connector = ByteStreamer(candidate_client)
+                class_cache[candidate_client] = connector
 
-    file_id = await tg_connect.get_file_properties(id)
-    if file_id.unique_id[:6]!= secure_hash:
+            file_id = await connector.get_file_properties(id)
+            tg_connect = connector
+            active_client_idx = idx
+            break
+        except Exception as err:
+            logger.warning(f"Client {idx} failed file lookup: {err}. Trying fallback...")
+            continue
+
+    if not file_id or not tg_connect:
+        raise FIleNotFound("File properties could not be retrieved from any client.")
+
+    if file_id.unique_id[:6] != secure_hash:
         raise InvalidHash
 
     file_size = file_id.file_size
@@ -117,7 +269,6 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
             headers={"Content-Range": f"bytes */{file_size}"},
         )
 
-    # 💥 BUG FIX: Must be exactly 1MB (1024 * 1024) to match Telegram chunks and avoid skip buffer crashes.
     chunk_size = 1024 * 1024
     until_bytes = min(until_bytes, file_size - 1)
 
@@ -128,7 +279,7 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
     req_length = until_bytes - from_bytes + 1
     part_count = math.ceil((until_bytes + 1) / chunk_size) - math.floor(offset / chunk_size)
     body = tg_connect.yield_file(
-        file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
+        file_id, active_client_idx, offset, first_part_cut, last_part_cut, part_count, chunk_size
     )
 
     mime_type = file_id.mime_type
@@ -137,11 +288,8 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
     if not mime_type:
         mime_type = mimetypes.guess_type(original_file_name)[0] or "video/mp4"
 
-    # 💥 AUTO RENAME
     safe_name = original_file_name.replace('"', '').replace("'", "")
     formatted_file_name = f"Boultflix - {safe_name}"
-
-    # 💥 INSTANT DOWNLOAD HEADER
     disposition = "attachment" if is_download else "inline"
 
     resp_headers = {
