@@ -1035,15 +1035,19 @@
             if (audios.length === 0) audios.push('Audio Track 1 (Default)');
             detectedAudioMeta = audios;
 
-            const subs = [];
-            if (lower.includes('esub') || lower.includes('sub') || lower.includes('mkv') || lower.includes('web-dl')) {
-                subs.push('English [Embedded Track]');
-            }
-            if (lower.includes('hdhub4u')) {
-                subs.push('HDHub4u.Ag (Embedded)');
-            }
-            if (subs.length === 0) {
-                subs.push('English Subtitles');
+            let subs = [];
+            if (lower.includes('esub') || lower.includes('sub') || lower.includes('subtitles')) {
+                let foundSubLang = false;
+                if (lower.includes('hin')) { subs.push('Hindi'); foundSubLang = true; }
+                if (lower.includes('eng') || lower.includes('dual')) { subs.push('English'); foundSubLang = true; }
+                if (lower.includes('tam')) { subs.push('Tamil'); foundSubLang = true; }
+                if (lower.includes('tel')) { subs.push('Telugu'); foundSubLang = true; }
+                if (lower.includes('jap')) { subs.push('Japanese'); foundSubLang = true; }
+                if (lower.includes('kor')) { subs.push('Korean'); foundSubLang = true; }
+                
+                if (!foundSubLang) {
+                    subs.push('English'); // Default fallback without 'Embedded' text
+                }
             }
             detectedSubMeta = subs;
         }
@@ -1069,7 +1073,6 @@
             videoLoader.classList.remove('hidden');
             showCenterControls(false);
 
-            // M3U8 string parser logic with query parameter support 
             let isM3U8 = false;
             try {
                 const u = new URL(FILE_URL, window.location.origin);
@@ -1106,7 +1109,10 @@
                         detectedAudioMeta = hls.audioTracks.map((t, idx) => t.name || t.language || `Track ${idx + 1}`);
                     }
                     if (hls.subtitleTracks && hls.subtitleTracks.length > 0) {
-                        detectedSubMeta = hls.subtitleTracks.map((t, idx) => t.name || t.language || `Sub ${idx + 1}`);
+                        detectedSubMeta = hls.subtitleTracks.map((t, idx) => {
+                            let name = t.name || t.language || `Subtitle ${idx + 1}`;
+                            return name.replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '').trim();
+                        });
                     }
                     video.play().catch(e => {
                         console.warn("Autoplay blocked by browser policy. User tap required:", e);
@@ -1353,6 +1359,21 @@
             showCenterControls(true);
             bindSubtitleCueRenderer();
             
+            if (video.textTracks && video.textTracks.length > 0) {
+                let nativeSubs = [];
+                for (let i = 0; i < video.textTracks.length; i++) {
+                    const track = video.textTracks[i];
+                    if (track.kind === 'subtitles' || track.kind === 'captions') {
+                        let name = track.label || track.language || `Subtitle ${nativeSubs.length + 1}`;
+                        name = name.replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '').trim();
+                        nativeSubs.push(name);
+                    }
+                }
+                if (nativeSubs.length > 0) {
+                    detectedSubMeta = nativeSubs; // override filename guessing with real tracks
+                }
+            }
+
             // Check for resume
             const savedPos = localStorage.getItem(SAVED_POS_KEY);
             if (savedPos && parseFloat(savedPos) > 10) {
@@ -1676,6 +1697,15 @@
             const subList = document.getElementById('sub-track-list');
             subList.innerHTML = '';
 
+            if (detectedSubMeta.length === 0) {
+                const noSub = document.createElement('div');
+                noSub.className = 'py-3 px-4 text-center text-gray-400 text-xs font-semibold';
+                noSub.textContent = 'No subtitles available for this file';
+                subList.appendChild(noSub);
+                openPopup('sub-popup');
+                return;
+            }
+
             const offBtn = document.createElement('button');
             const isOff = (activeSubIdx === -1);
             offBtn.className = isOff
@@ -1696,7 +1726,8 @@
             for (let i = 0; i < detectedSubMeta.length; i++) {
                 const btn = document.createElement('button');
                 btn.className = 'w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold text-left flex justify-between items-center transition';
-                btn.innerHTML = `<span>${detectedSubMeta[i]}</span>`;
+                let cleanName = detectedSubMeta[i].replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '').trim();
+                btn.innerHTML = `<span>${cleanName}</span>`;
                 btn.onclick = () => {
                     openPopup('sub-alert-popup'); 
                 };
