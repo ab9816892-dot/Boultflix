@@ -477,6 +477,122 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 24px -4px rgba(0, 210, 255, 0.25);
         }
+
+        /* ===== Animated pulse badge (Download View) ===== */
+        .pulse-badge {
+            animation: badgePulse 1.6s infinite ease-in-out;
+        }
+        @keyframes badgePulse {
+            0% {
+                box-shadow: 0 0 12px rgba(0, 210, 255, 0.3), 0 0 20px rgba(0, 210, 255, 0.15);
+                border-color: rgba(0, 210, 255, 0.4);
+                transform: scale(1);
+            }
+            50% {
+                box-shadow: 0 0 22px rgba(0, 210, 255, 0.6), 0 0 35px rgba(0, 210, 255, 0.3);
+                border-color: rgba(0, 210, 255, 0.8);
+                transform: scale(1.02);
+            }
+            100% {
+                box-shadow: 0 0 12px rgba(0, 210, 255, 0.3), 0 0 20px rgba(0, 210, 255, 0.15);
+                border-color: rgba(0, 210, 255, 0.4);
+                transform: scale(1);
+            }
+        }
+
+        /* ===== In-frame, scoped playback error overlay (lives INSIDE #player-container) ===== */
+        #error-screen {
+            position: absolute;
+            inset: 0;
+            z-index: 45;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px;
+            background: rgba(2, 4, 10, 0.72);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            overflow: hidden;
+            cursor: default;
+        }
+        #error-screen.hidden { display: none !important; }
+        /* Ultra-compact card: natural height ~95px, hard cap 130px, never scrolls, never clips */
+        #error-screen .err-card {
+            width: 100%;
+            max-width: 360px;
+            max-height: 130px;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            text-align: center;
+            gap: 3px;
+            padding: 8px 10px;
+            background: rgba(10, 16, 30, 0.72);
+            backdrop-filter: blur(24px) saturate(190%);
+            -webkit-backdrop-filter: blur(24px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            border-radius: 14px;
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.8), inset 0 1px 1px rgba(255, 255, 255, 0.18);
+        }
+        #error-screen .err-card.hidden { display: none !important; }
+        #error-screen .err-card.err-codec { border-color: rgba(251, 146, 60, 0.38); }
+        #error-screen .err-card.err-network { border-color: rgba(239, 68, 68, 0.35); }
+        #error-screen .err-head { display: flex; align-items: center; justify-content: center; gap: 7px; }
+        #error-screen .err-icon {
+            width: 24px; height: 24px; flex-shrink: 0;
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 11px;
+        }
+        #error-screen .err-codec .err-icon { background: rgba(251, 146, 60, 0.18); color: #fb923c; border: 1px solid rgba(251, 146, 60, 0.45); }
+        #error-screen .err-network .err-icon { background: rgba(239, 68, 68, 0.18); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.45); }
+        #error-screen .err-title {
+            margin: 0;
+            white-space: nowrap;
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 12.5px;
+            line-height: 1.15;
+            color: #ffffff;
+        }
+        #error-screen .err-text {
+            margin: 0;
+            font-size: 10px;
+            line-height: 1.25;
+            color: #9ca3af;
+        }
+        #error-screen .err-btn-main,
+        #error-screen .err-btn-sub {
+            padding: 6px 10px;
+            border-radius: 10px;
+            font-size: 11px;
+            line-height: 1.2;
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+        }
+        #error-screen .err-btn-main {
+            flex: 1.7 1 0;
+            border: 1px solid rgba(0, 210, 255, 0.6);
+            background: linear-gradient(135deg, #00d2ff 0%, #0051ff 100%);
+            color: #000000;
+            font-weight: 800;
+            letter-spacing: 0.02em;
+            box-shadow: 0 0 18px rgba(0, 210, 255, 0.4);
+        }
+        #error-screen .err-btn-main:hover { box-shadow: 0 0 26px rgba(0, 210, 255, 0.65); }
+        #error-screen .err-btn-sub {
+            flex: 1 1 0;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.14);
+            color: #d1d5db;
+            font-weight: 600;
+        }
+        #error-screen .err-btn-sub:hover { background: rgba(255, 255, 255, 0.2); }
+        #error-screen .err-btn-main:active,
+        #error-screen .err-btn-sub:active { transform: scale(0.97); }
     </style>
 </head>
 <body class="antialiased">
@@ -527,6 +643,33 @@
                 <!-- Network Buffer Spinner -->
                 <div id="video-loader" class="hidden">
                     <div class="loader"></div>
+                </div>
+
+                <!-- IN-FRAME ERROR OVERLAY (scoped to the 16:9 player frame; never covers navbar / buttons / external players) -->
+                <div id="error-screen" class="hidden" role="alert" aria-live="assertive">
+                    <!-- Codec card: native playback failed because of video/audio codec -->
+                    <div id="error-codec-card" class="err-card err-codec hidden">
+                        <div class="err-head">
+                            <div class="err-icon"><i class="fas fa-film"></i></div>
+                            <h4 class="err-title">Browser Codec Unsupported</h4>
+                        </div>
+                        <p class="err-text">Browser cannot decode this video/audio format. Play in VLC for smooth playback.</p>
+                        <div class="err-actions flex flex-row w-full gap-2 mt-1">
+                            <button type="button" onclick="launchApp('vlc')" class="err-btn-main"><i class="fas fa-external-link-alt"></i><span>Open in VLC</span></button>
+                            <button type="button" onclick="retryPlayback()" class="err-btn-sub"><i class="fas fa-rotate-right"></i><span>Retry</span></button>
+                        </div>
+                    </div>
+                    <!-- Network card: connection dropped / timed out / stalled -->
+                    <div id="error-network-card" class="err-card err-network hidden">
+                        <div class="err-head">
+                            <div class="err-icon"><i class="fas fa-wifi"></i></div>
+                            <h4 class="err-title">Connection Interrupted</h4>
+                        </div>
+                        <p class="err-text">The stream stopped loading. Check your connection and try again.</p>
+                        <div class="err-actions flex flex-row w-full gap-2 mt-1">
+                            <button type="button" onclick="retryPlayback()" class="err-btn-main"><i class="fas fa-rotate-right"></i><span>Retry Connection</span></button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Double-Tap Skip Zones -->
@@ -656,9 +799,11 @@
                     <i class="fas fa-play-circle text-[#0088ff] text-xl sm:text-2xl mb-1 drop-shadow-[0_0_8px_rgba(0,136,255,0.5)]"></i>
                     <span class="font-bold text-[10px] sm:text-xs text-gray-200">MX Player</span>
                 </button>
-                <button onclick="launchApp('mxpro')" class="intent-card">
-                    <i class="fas fa-play-circle text-[#0066cc] text-xl sm:text-2xl mb-1 drop-shadow-[0_0_8px_rgba(0,102,204,0.5)]"></i>
-                    <span class="font-bold text-[10px] sm:text-xs text-gray-200">MX Pro</span>
+                <button onclick="launchApp('bs')" class="intent-card">
+                    <span class="w-6 h-6 sm:w-7 sm:h-7 mb-1 rounded-full bg-obsidian border border-sapphire/70 flex items-center justify-center shadow-[0_0_10px_rgba(0,210,255,0.55)]">
+                        <i class="fas fa-play text-sapphire text-[9px] sm:text-[11px] ml-0.5 drop-shadow-[0_0_6px_rgba(0,210,255,0.8)]"></i>
+                    </span>
+                    <span class="font-bold text-[10px] sm:text-xs text-gray-200">BSPlayer</span>
                 </button>
                 <button onclick="launchApp('potplayer')" class="intent-card">
                     <i class="fas fa-tv text-[#ffd700] text-xl sm:text-2xl mb-1 drop-shadow-[0_0_8px_rgba(255,215,0,0.5)]"></i>
@@ -708,7 +853,7 @@
                 <i class="fas fa-cloud-arrow-down text-2xl animate-bounce"></i>
             </div>
 
-            <div class="inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-sapphire/10 border border-sapphire/30 text-sapphire text-[10px] font-bold tracking-widest uppercase mb-4 leading-none">
+            <div class="pulse-badge inline-flex items-center justify-center gap-2 px-3.5 py-1.5 rounded-full bg-sapphire/10 border border-sapphire/30 text-sapphire text-[10px] font-bold tracking-widest uppercase mb-4 leading-none">
                 <span class="w-1.5 h-1.5 rounded-full bg-sapphire animate-ping shrink-0"></span>
                 <span class="inline-block leading-none pt-0.5">DIRECT CLOUD PIPELINE INITIALIZED</span>
             </div>
@@ -743,21 +888,6 @@
 
     <!-- ROOT TOP-LAYER MODALS -->
     <div id="global-modal-layer">
-
-        <!-- ERROR SCREEN (Moved to Top Layer) -->
-        <div id="error-screen" class="fixed inset-0 z-[9999] flex items-center justify-center bg-[rgba(0,0,0,0.88)] backdrop-blur-[18px] p-4 hidden">
-            <div class="glass-panel p-6 max-w-sm w-full text-center border-red-500/30 rounded-2xl bg-[rgba(10,16,30,0.7)] shadow-[0_20px_60px_rgba(0,0,0,0.9)]">
-                <div class="w-12 h-12 rounded-full bg-red-500/20 text-red-500 flex items-center justify-center mx-auto mb-3 border border-red-500/40">
-                    <i class="fas fa-circle-exclamation text-xl"></i>
-                </div>
-                <h4 class="font-bold text-sm text-white font-['Outfit'] mb-1">Playback Interrupted</h4>
-                <p class="text-gray-400 text-xs leading-relaxed mb-4">Stream connection dropped or codec unsupported by browser. Try reconnecting or launch in external player.</p>
-                <div class="flex gap-2">
-                    <button onclick="retryPlayback()" class="flex-1 py-2.5 bg-white/10 hover:bg-white/20 rounded-xl text-xs font-semibold transition active:scale-95">Retry</button>
-                    <button onclick="launchApp('vlc')" class="flex-1 py-2.5 bg-sapphire/20 hover:bg-sapphire/30 text-sapphire border border-sapphire/40 rounded-xl text-xs font-bold transition active:scale-95">VLC Play</button>
-                </div>
-            </div>
-        </div>
 
         <!-- AUDIO ALERT POPUP -->
         <div id="audio-alert-popup" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
@@ -940,7 +1070,7 @@
     <script>
         const RAW_FILE_URL = `{{file_url}}`;
         const FILE_NAME = `{{file_name}}`;
-        const SAVED_POS_KEY = `boultflix_pos_{{file_name}}`;
+        const SAVED_POS_KEY = 'boultflix_pos_' + btoa(unescape(encodeURIComponent(FILE_NAME))).replace(/[^a-zA-Z0-9]/g, '').slice(0, 32);
 
         function resolveWorkingStreamUrl(raw) {
             if (!raw || raw.includes('{{')) return '';
@@ -1005,40 +1135,126 @@
         const errorScreen = document.getElementById('error-screen');
         const videoLoader = document.getElementById('video-loader');
 
-        let detectedAudioMeta = [];
-        let detectedSubMeta = [];
+        // Track metadata comes ONLY from the server (ffprobe). Nothing is guessed from the filename.
+        let detectedAudioMeta = (Array.isArray(window.__SERVER_AUDIOS__) && window.__SERVER_AUDIOS__.length > 0)
+            ? window.__SERVER_AUDIOS__
+            : ['Default Audio'];
+
+        let detectedSubMeta = (Array.isArray(window.__SERVER_SUBS__) && window.__SERVER_SUBS__.length > 0)
+            ? window.__SERVER_SUBS__
+            : [];
+
+        // When the server supplied ffprobe data it is authoritative: HLS / native <video> track lists must not overwrite it
+        const SERVER_AUDIO_PROVIDED = Array.isArray(window.__SERVER_AUDIOS__) && window.__SERVER_AUDIOS__.length > 0;
+        const SERVER_SUBS_PROVIDED = Array.isArray(window.__SERVER_SUBS__) && window.__SERVER_SUBS__.length > 0;
         let activeAudioIdx = 0;
         let activeSubIdx = -1; 
 
-        function inferTracksFromFilename(name) {
-            const lower = (name || '').toLowerCase();
-            const audios = [];
-            if (lower.includes('hindi') || lower.includes('hin')) audios.push('Hindi (Default)');
-            if (lower.includes('eng') || lower.includes('dual')) audios.push('English');
-            if (lower.includes('tam')) audios.push('Tamil');
-            if (lower.includes('tel')) audios.push('Telugu');
-            if (lower.includes('jap')) audios.push('Japanese');
-            if (lower.includes('kor')) audios.push('Korean');
-            if (audios.length === 0) audios.push('Audio Track 1 (Default)');
-            detectedAudioMeta = audios;
-
-            let subs = [];
-            if (lower.includes('esub') || lower.includes('sub') || lower.includes('subtitles')) {
-                let foundSubLang = false;
-                if (lower.includes('hin')) { subs.push('Hindi'); foundSubLang = true; }
-                if (lower.includes('eng') || lower.includes('dual')) { subs.push('English'); foundSubLang = true; }
-                if (lower.includes('tam')) { subs.push('Tamil'); foundSubLang = true; }
-                if (lower.includes('tel')) { subs.push('Telugu'); foundSubLang = true; }
-                if (lower.includes('jap')) { subs.push('Japanese'); foundSubLang = true; }
-                if (lower.includes('kor')) { subs.push('Korean'); foundSubLang = true; }
-                
-                if (!foundSubLang) {
-                    subs.push('English'); 
-                }
-            }
-            detectedSubMeta = subs;
+        // Safe, display-only label for a track entry (string or {title|name|label|language} object)
+        function trackLabel(t, fallback, stripEmbeddedTags) {
+            let s = '';
+            if (typeof t === 'string') s = t;
+            else if (t && typeof t === 'object') s = t.title || t.name || t.label || t.language || t.lang || '';
+            else if (t !== null && t !== undefined) s = String(t);
+            s = String(s);
+            if (stripEmbeddedTags) s = s.replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '');
+            s = s.trim();
+            return s || fallback;
         }
-        inferTracksFromFilename(FILE_NAME);
+
+        // ================= PLAYBACK ERROR ENGINE (codec vs network) =================
+        let usingHls = false;
+        let pendingSeekPos = 0;
+        let playbackErrorKind = null;
+        let stallErrorTimer = null;
+        let loadTimeoutTimer = null;
+        const STALL_ERROR_MS = 20000;   // buffering with no data for this long => Connection Interrupted
+        const LOAD_TIMEOUT_MS = 25000;  // no metadata within this time => Connection Interrupted
+
+        function showPlaybackError(kind) {
+            kind = (kind === 'codec') ? 'codec' : 'network';
+            clearStallWatch();
+            clearTimeout(loadTimeoutTimer);
+            clearTimeout(stallTimer);
+            playbackErrorKind = kind;
+            document.getElementById('error-codec-card').classList.toggle('hidden', kind !== 'codec');
+            document.getElementById('error-network-card').classList.toggle('hidden', kind !== 'network');
+            videoLoader.classList.add('hidden');
+            showCenterControls(false);
+            errorScreen.classList.remove('hidden');
+        }
+
+        function hidePlaybackError() {
+            playbackErrorKind = null;
+            errorScreen.classList.add('hidden');
+        }
+
+        function armLoadTimeout() {
+            clearTimeout(loadTimeoutTimer);
+            loadTimeoutTimer = setTimeout(() => {
+                if (FILE_URL && video.readyState < video.HAVE_METADATA) showPlaybackError('network');
+            }, LOAD_TIMEOUT_MS);
+        }
+
+        function armStallWatch() {
+            if (stallErrorTimer) return;
+            stallErrorTimer = setTimeout(() => {
+                stallErrorTimer = null;
+                if (!video.paused && !video.ended && video.readyState < video.HAVE_FUTURE_DATA) showPlaybackError('network');
+            }, STALL_ERROR_MS);
+        }
+        function clearStallWatch() {
+            clearTimeout(stallErrorTimer);
+            stallErrorTimer = null;
+        }
+
+        // Decide whether a <video> error is a codec problem or a network problem.
+        async function classifyMediaError(err) {
+            const code = err && err.code;
+            if (code === 2) return 'network';                 // MEDIA_ERR_NETWORK
+            if (code === 3) return 'codec';                   // MEDIA_ERR_DECODE
+            if (navigator.onLine === false) return 'network';
+            // MEDIA_ERR_SRC_NOT_SUPPORTED (4) is raised for BOTH unsupported codecs and failed HTTP loads -> probe the URL.
+            const ctrl = new AbortController();
+            const killer = setTimeout(() => ctrl.abort(), 7000);
+            try {
+                const res = await fetch(FILE_URL, { method: 'GET', cache: 'no-store', signal: ctrl.signal });
+                clearTimeout(killer);
+                const reachable = res.ok || res.status === 206;
+                ctrl.abort(); // we only need the headers
+                return reachable ? 'codec' : 'network';
+            } catch (e) {
+                clearTimeout(killer);
+                return 'network';
+            }
+        }
+
+        video.addEventListener('playing', () => { clearStallWatch(); });
+        video.addEventListener('canplay', () => { if (video.readyState >= video.HAVE_FUTURE_DATA) clearStallWatch(); });
+        window.addEventListener('offline', () => {
+            if (FILE_URL && !video.ended && video.readyState < video.HAVE_FUTURE_DATA && video.currentSrc !== '') showPlaybackError('network');
+        });
+
+        // ---- Autoplay gate: never start playback behind the Welcome / Resume modals ----
+        let pendingAutoplay = false;
+        function isModalGateActive() {
+            const w = document.getElementById('welcome-popup');
+            const r = document.getElementById('resume-modal');
+            return !!((w && w.classList.contains('active')) || (r && r.classList.contains('active')));
+        }
+        function tryAutoplay() {
+            if (isModalGateActive()) {
+                pendingAutoplay = true;   // released when the user dismisses the modal or clicks Resume / Start Over
+                video.pause();
+                showCenterControls(true);
+                return;
+            }
+            pendingAutoplay = false;
+            video.play().catch(e => {
+                console.warn("Autoplay blocked by browser policy. User tap required:", e);
+                showCenterControls(true);
+            });
+        }
 
         function initPlayer() {
             errorScreen.classList.add('hidden');
@@ -1060,6 +1276,7 @@
             videoLoader.classList.remove('hidden');
             showCenterControls(false);
 
+            armLoadTimeout();
             let isM3U8 = false;
             try {
                 const u = new URL(FILE_URL, window.location.origin);
@@ -1068,6 +1285,7 @@
                 isM3U8 = FILE_URL.split('?')[0].endsWith('.m3u8');
             }
 
+            usingHls = !!(isM3U8 && window.Hls && Hls.isSupported());
             if (isM3U8 && window.Hls && Hls.isSupported()) {
                 // Ultimate Jugad HLS Config for x265 smooth stream and Instant Play
                 const hls = new Hls({ 
@@ -1101,47 +1319,67 @@
                 });
 
                 hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
-                    if (hls.audioTracks && hls.audioTracks.length > 0) {
+                    if (!SERVER_AUDIO_PROVIDED && hls.audioTracks && hls.audioTracks.length > 0) {
                         detectedAudioMeta = hls.audioTracks.map((t, idx) => t.name || t.language || `Track ${idx + 1}`);
                     }
-                    if (hls.subtitleTracks && hls.subtitleTracks.length > 0) {
+                    if (!SERVER_SUBS_PROVIDED && hls.subtitleTracks && hls.subtitleTracks.length > 0) {
                         detectedSubMeta = hls.subtitleTracks.map((t, idx) => {
                             let name = t.name || t.language || `Subtitle ${idx + 1}`;
                             return name.replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '').trim();
                         });
                     }
-                    video.play().catch(e => {
-                        console.warn("Autoplay blocked by browser policy. User tap required:", e);
-                        showCenterControls(true);
-                    });
+                    tryAutoplay();
                 });
                 
                 let hlsRetryCount = 0;
+                let hlsNetFailures = 0;
+                let hlsMediaRecoveries = 0;
+                let hlsLastRecoverAt = 0;
+                hls.on(Hls.Events.FRAG_LOADED, function () { hlsNetFailures = 0; });
                 hls.on(Hls.Events.ERROR, function (event, data) {
-                    if (data.fatal) {
-                        switch (data.type) {
-                            case Hls.ErrorTypes.NETWORK_ERROR:
-                                // Ultimate 429 Telegram Bypass Exponential Backoff with Jitter
-                                if (data.response && data.response.code === 429) {
-                                    let jitter = Math.floor(Math.random() * 500); 
-                                    let delay = 1000 * Math.pow(1.5, hlsRetryCount) + jitter;
-                                    hlsRetryCount++;
-                                    if(hlsRetryCount > 6) hlsRetryCount = 1;
-                                    showToast("Network busy, reconnecting...");
-                                    setTimeout(() => {
-                                        hls.startLoad();
-                                    }, delay);
-                                } else {
+                    if (!data.fatal) return;
+                    if (data.details === 'bufferAddCodecError' || data.details === 'manifestIncompatibleCodecsError' || data.details === 'bufferIncompatibleCodecsError') {
+                        hls.stopLoad();
+                        showPlaybackError('codec');
+                        return;
+                    }
+                    switch (data.type) {
+                        case Hls.ErrorTypes.NETWORK_ERROR:
+                            hlsNetFailures++;
+                            if (hlsNetFailures > 8) {
+                                hls.stopLoad();
+                                showPlaybackError('network');
+                                break;
+                            }
+                            // Ultimate 429 Telegram Bypass Exponential Backoff with Jitter
+                            if (data.response && data.response.code === 429) {
+                                let jitter = Math.floor(Math.random() * 500); 
+                                let delay = 1000 * Math.pow(1.5, hlsRetryCount) + jitter;
+                                hlsRetryCount++;
+                                if(hlsRetryCount > 6) hlsRetryCount = 1;
+                                showToast("Network busy, reconnecting...");
+                                setTimeout(() => {
                                     hls.startLoad();
-                                }
-                                break;
-                            case Hls.ErrorTypes.MEDIA_ERROR:
+                                }, delay);
+                            } else {
+                                setTimeout(() => { hls.startLoad(); }, 1000);
+                            }
+                            break;
+                        case Hls.ErrorTypes.MEDIA_ERROR:
+                            if (Date.now() - hlsLastRecoverAt > 30000) hlsMediaRecoveries = 0;
+                            hlsLastRecoverAt = Date.now();
+                            hlsMediaRecoveries++;
+                            if (hlsMediaRecoveries > 2) {
+                                showPlaybackError('codec');
+                            } else {
                                 hls.recoverMediaError();
-                                break;
-                            default:
-                                hls.destroy();
-                                break;
-                        }
+                            }
+                            break;
+                        default:
+                            hls.destroy();
+                            window.hlsInstance = null;
+                            showPlaybackError(data.type === Hls.ErrorTypes.MUX_ERROR ? 'codec' : 'network');
+                            break;
                     }
                 });
                 
@@ -1150,9 +1388,7 @@
                 video.src = FILE_URL;
                 video.load();
                 video.addEventListener('loadedmetadata', () => {
-                    video.play().catch(e => {
-                        showCenterControls(true);
-                    });
+                    tryAutoplay();
                 });
             }
         }
@@ -1164,25 +1400,36 @@
 
         function retryPlayback() {
             if (!FILE_URL) return;
-            errorScreen.classList.add('hidden');
-            videoLoader.classList.remove('hidden');
             const currentPos = video.currentTime || 0;
+            hidePlaybackError();
+            videoLoader.classList.remove('hidden');
+            pendingSeekPos = currentPos > 1 ? currentPos : 0;
+            armLoadTimeout();
+            if (usingHls) {
+                // Rebuild a fresh HLS pipeline (the old one may be destroyed or stopped)
+                if (window.hlsInstance) { try { window.hlsInstance.destroy(); } catch (e) {} window.hlsInstance = null; }
+                initPlayer();
+                return;
+            }
             video.src = FILE_URL;
-            video.currentTime = currentPos;
+            video.load();
             video.play().catch(() => {});
         }
 
         let errorRetryCount = 0;
-        video.addEventListener('error', () => {
+        video.addEventListener('error', async () => {
             if (!FILE_URL) return;
+            const mediaErr = video.error;
+            if (mediaErr && mediaErr.code === 1) return; // MEDIA_ERR_ABORTED (we aborted it ourselves)
             if (errorRetryCount < 1 && video.currentTime > 0) {
                 errorRetryCount++;
                 setTimeout(retryPlayback, 800);
                 return;
             }
             videoLoader.classList.add('hidden');
-            errorScreen.classList.remove('hidden');
             showCenterControls(false);
+            const kind = await classifyMediaError(mediaErr);
+            showPlaybackError(kind);
         });
 
         video.addEventListener('loadstart', () => { if (FILE_URL) videoLoader.classList.remove('hidden'); });
@@ -1194,6 +1441,7 @@
             clearTimeout(stallTimer);
             // 400ms Debounce handle waiting
             stallTimer = setTimeout(() => {
+                if (isModalGateActive()) return;
                 if (video.networkState === video.NETWORK_LOADING || video.readyState < video.HAVE_FUTURE_DATA) {
                     if (window.hlsInstance) window.hlsInstance.recoverMediaError();
                     video.play().catch(() => {});
@@ -1201,8 +1449,8 @@
             }, 400);
         }
 
-        video.addEventListener('waiting', handleStall);
-        video.addEventListener('stalled', handleStall);
+        video.addEventListener('waiting', () => { handleStall(); armStallWatch(); });
+        video.addEventListener('stalled', () => { handleStall(); if (video.readyState < video.HAVE_FUTURE_DATA) armStallWatch(); });
         
         let lastSeekingTime = 0;
         video.addEventListener('seeking', () => { 
@@ -1244,12 +1492,20 @@
             toastTimeout = setTimeout(() => toast.classList.remove('show'), 2500);
         }
 
+        // True while the user is seeking on a paused video: HUD must still fade out after 3s of inactivity
+        let pausedSeekAutoHide = false;
+        function hudAfterPausedSeek() {
+            if (!video.paused) return;
+            pausedSeekAutoHide = true;
+            showHudAndCursor();
+        }
+
         function showHudAndCursor() {
             hud.classList.remove('hidden-hud');
             playerContainer.classList.remove('hide-cursor');
             customSubOverlay.style.bottom = '15%';
             clearTimeout(hudTimeout);
-            if (!video.paused) {
+            if (!video.paused || pausedSeekAutoHide) {
                 hudTimeout = setTimeout(() => {
                     hud.classList.add('hidden-hud');
                     playerContainer.classList.add('hide-cursor');
@@ -1271,11 +1527,13 @@
         }
 
         video.addEventListener('play', () => {
+            pausedSeekAutoHide = false;
             playIcon.className = 'fas fa-pause';
             showHudAndCursor();
         });
 
         video.addEventListener('pause', () => {
+            pausedSeekAutoHide = false;
             playIcon.className = 'fas fa-play ml-0.5';
             videoLoader.classList.add('hidden');
             showCenterControls(true);
@@ -1321,37 +1579,69 @@
             }
             
             setTimeout(() => { isSeekingPending = false; }, 200);
+            hudAfterPausedSeek();
         }
 
         document.getElementById('btn-rewind').addEventListener('click', (e) => { e.stopPropagation(); seek(-10); showToast('-10s'); });
         document.getElementById('btn-forward').addEventListener('click', (e) => { e.stopPropagation(); seek(10); showToast('+10s'); });
 
-        let lastTapLeft = 0, lastTapRight = 0;
-        document.getElementById('dt-left').addEventListener('touchend', (e) => {
-            const now = Date.now();
-            if (now - lastTapLeft < 320) {
-                e.preventDefault(); e.stopPropagation(); seek(-10);
-                if (navigator.vibrate) navigator.vibrate(40);
-                const pill = document.getElementById('skip-left');
-                pill.classList.remove('skip-animate'); void pill.offsetWidth; pill.classList.add('skip-animate');
-            } else {
-                if (hud.classList.contains('hidden-hud')) showHudAndCursor(); else togglePlay();
-            }
-            lastTapLeft = now;
-        });
+        // Mobile double-tap: a single tap is delayed by 280ms so a double-tap NEVER toggles play/pause
+        const TAP_DEBOUNCE_MS = 280;
+        let singleTapTimer = null;
+        let lastTapSide = null;
+        let lastTapTime = 0;
+        let lastSkipTime = 0;
 
-        document.getElementById('dt-right').addEventListener('touchend', (e) => {
+        function fireSingleTap() {
+            if (hud.classList.contains('hidden-hud')) showHudAndCursor(); else togglePlay();
+        }
+
+        function doubleTapSkip(side) {
+            seek(side === 'left' ? -10 : 10);
+            if (navigator.vibrate) navigator.vibrate(40);
+            const pill = document.getElementById(side === 'left' ? 'skip-left' : 'skip-right');
+            pill.classList.remove('skip-animate'); void pill.offsetWidth; pill.classList.add('skip-animate');
+            lastSkipTime = Date.now();
+        }
+
+        function handleSkipZoneTap(side, e) {
             const now = Date.now();
-            if (now - lastTapRight < 320) {
-                e.preventDefault(); e.stopPropagation(); seek(10);
-                if (navigator.vibrate) navigator.vibrate(40);
-                const pill = document.getElementById('skip-right');
-                pill.classList.remove('skip-animate'); void pill.offsetWidth; pill.classList.add('skip-animate');
-            } else {
-                if (hud.classList.contains('hidden-hud')) showHudAndCursor(); else togglePlay();
+
+            // Second tap inside the window (same side): cancel the pending single-tap, skip ONLY
+            if (singleTapTimer && lastTapSide === side && (now - lastTapTime) < TAP_DEBOUNCE_MS) {
+                clearTimeout(singleTapTimer);
+                singleTapTimer = null;
+                lastTapTime = now;
+                e.preventDefault(); e.stopPropagation();
+                doubleTapSkip(side);
+                return;
             }
-            lastTapRight = now;
-        });
+
+            // Rapid extra taps right after a skip keep skipping (YouTube style)
+            if (!singleTapTimer && lastTapSide === side && (now - lastSkipTime) < TAP_DEBOUNCE_MS) {
+                lastTapTime = now;
+                e.preventDefault(); e.stopPropagation();
+                doubleTapSkip(side);
+                return;
+            }
+
+            // Tap on the opposite side while one is pending: flush the old single-tap first
+            if (singleTapTimer) {
+                clearTimeout(singleTapTimer);
+                singleTapTimer = null;
+                fireSingleTap();
+            }
+
+            lastTapSide = side;
+            lastTapTime = now;
+            singleTapTimer = setTimeout(() => {
+                singleTapTimer = null;
+                fireSingleTap();
+            }, TAP_DEBOUNCE_MS);
+        }
+
+        document.getElementById('dt-left').addEventListener('touchend', (e) => handleSkipZoneTap('left', e));
+        document.getElementById('dt-right').addEventListener('touchend', (e) => handleSkipZoneTap('right', e));
 
         video.addEventListener('loadedmetadata', () => {
             timeTotal.textContent = formatTime(video.duration);
@@ -1359,7 +1649,7 @@
             showCenterControls(true);
             bindSubtitleCueRenderer();
             
-            if (video.textTracks && video.textTracks.length > 0) {
+            if (!SERVER_SUBS_PROVIDED && video.textTracks && video.textTracks.length > 0) {
                 let nativeSubs = [];
                 for (let i = 0; i < video.textTracks.length; i++) {
                     const track = video.textTracks[i];
@@ -1372,6 +1662,14 @@
                 if (nativeSubs.length > 0) {
                     detectedSubMeta = nativeSubs;
                 }
+            }
+
+            clearTimeout(loadTimeoutTimer);
+            if (pendingSeekPos > 0) {
+                const resumeAt = pendingSeekPos;
+                pendingSeekPos = 0;
+                try { video.currentTime = resumeAt; } catch (e) {}
+                return; // retry path: continue silently, no resume prompt
             }
 
             // Fixed Resume logic - Video immediately pauses in background until user decides
@@ -1400,6 +1698,8 @@
             }
         });
 
+        video.addEventListener('ended', () => { try { localStorage.removeItem(SAVED_POS_KEY); } catch (e) {} });
+
         video.addEventListener('progress', () => {
             if (video.buffered.length > 0 && video.duration) {
                 const end = video.buffered.end(video.buffered.length - 1);
@@ -1421,7 +1721,7 @@
 
         timelineContainer.addEventListener('mousedown', (e) => { isDragging = true; updateTimeline(e); });
         document.addEventListener('mousemove', (e) => { if (isDragging) updateTimeline(e); });
-        document.addEventListener('mouseup', () => { isDragging = false; });
+        document.addEventListener('mouseup', () => { if (isDragging) { isDragging = false; hudAfterPausedSeek(); } });
         timelineContainer.addEventListener('mousemove', (e) => {
             if (!isDragging && video.duration) {
                 const rect = timelineContainer.getBoundingClientRect();
@@ -1435,7 +1735,7 @@
 
         timelineContainer.addEventListener('touchstart', (e) => { isDragging = true; updateTimeline(e.touches[0]); }, {passive: true});
         timelineContainer.addEventListener('touchmove', (e) => { if (isDragging) updateTimeline(e.touches[0]); }, {passive: true});
-        timelineContainer.addEventListener('touchend', () => { isDragging = false; });
+        timelineContainer.addEventListener('touchend', () => { if (isDragging) { isDragging = false; hudAfterPausedSeek(); } });
 
         const volSlider = document.getElementById('volume-slider');
         const btnMute = document.getElementById('btn-mute');
@@ -1465,6 +1765,7 @@
                         progressFilled.style.width = `${pct}%`; progressThumb.style.left = `${pct}%`;
                         timeCurrent.textContent = formatTime(video.currentTime);
                     }
+                    hudAfterPausedSeek();
                     break;
                 case 'ArrowRight':
                     e.preventDefault(); showHudAndCursor();
@@ -1474,6 +1775,7 @@
                         progressFilled.style.width = `${pct}%`; progressThumb.style.left = `${pct}%`;
                         timeCurrent.textContent = formatTime(video.currentTime);
                     }
+                    hudAfterPausedSeek();
                     break;
                 case 'ArrowUp':
                     e.preventDefault(); video.volume = Math.min(1, video.volume + 0.05);
@@ -1571,11 +1873,15 @@
 
         function openPopup(id) {
             const hasOpen = document.querySelector('.glass-popup-backdrop.active');
-            wasPlayingBeforePopup = (!video.paused && !video.ended);
-            if (wasPlayingBeforePopup) video.pause();
+            if (!hasOpen) {
+                // Only the FIRST popup decides whether playback was running; switching popups must keep that state
+                wasPlayingBeforePopup = (!video.paused && !video.ended);
+                if (wasPlayingBeforePopup) video.pause();
+            }
             
             if (hasOpen) {
-                closeAllPopups();
+                // Swap popups silently (no resume in between)
+                document.querySelectorAll('.glass-popup-backdrop.active').forEach(p => p.classList.remove('active'));
                 setTimeout(() => {
                     document.getElementById(id).classList.add('active');
                 }, 220); 
@@ -1594,6 +1900,10 @@
                         if (wasPlayingBeforePopup && !document.querySelector('.glass-popup-backdrop.active')) {
                             video.play().catch(() => {});
                             wasPlayingBeforePopup = false;
+                            pendingAutoplay = false;
+                        } else if (pendingAutoplay && !document.querySelector('.glass-popup-backdrop.active')) {
+                            pendingAutoplay = false;
+                            video.play().catch(() => { showCenterControls(true); });
                         }
                     }, 220);
                 });
@@ -1672,16 +1982,30 @@
             showToast(`Aspect Ratio: ${mode}`);
         }
 
+        // Decode WebVTT entities (&amp; &lt; ...) without ever parsing markup
+        function decodeCueText(s) {
+            const ta = document.createElement('textarea');
+            ta.innerHTML = s;
+            return ta.value;
+        }
+
         function bindSubtitleCueRenderer() {
             if (!video.textTracks) return;
             for (let i = 0; i < video.textTracks.length; i++) {
                 const track = video.textTracks[i];
                 track.oncuechange = () => {
                     if (track.mode === 'showing' && track.activeCues && track.activeCues.length > 0) {
-                        const lines = Array.from(track.activeCues).map(c => c.text.replace(/<[^>]*>/g, '')).join('<br>');
-                        customSubOverlay.innerHTML = lines;
+                        const lines = [];
+                        Array.from(track.activeCues).forEach(c => {
+                            decodeCueText(String(c.text || '').replace(/<[^>]*>/g, '')).split(/\r?\n/).forEach(l => lines.push(l));
+                        });
+                        customSubOverlay.textContent = '';
+                        lines.forEach((l, idx) => {
+                            if (idx > 0) customSubOverlay.appendChild(document.createElement('br'));
+                            customSubOverlay.appendChild(document.createTextNode(l));
+                        });
                     } else if (activeSubIdx === -1) {
-                        customSubOverlay.innerHTML = '';
+                        customSubOverlay.textContent = '';
                     }
                 };
             }
@@ -1720,8 +2044,10 @@
             for (let i = 0; i < detectedSubMeta.length; i++) {
                 const btn = document.createElement('button');
                 btn.className = 'w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold text-left flex justify-between items-center transition';
-                let cleanName = detectedSubMeta[i].replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '').trim();
-                btn.innerHTML = `<span>${cleanName}</span>`;
+                const cleanName = trackLabel(detectedSubMeta[i], `Subtitle ${i + 1}`, true);
+                const nameSpan = document.createElement('span');
+                nameSpan.textContent = cleanName;
+                btn.appendChild(nameSpan);
                 btn.onclick = () => {
                     openPopup('sub-alert-popup'); 
                 };
@@ -1736,13 +2062,20 @@
 
             for (let i = 0; i < detectedAudioMeta.length; i++) {
                 const isSelected = (activeAudioIdx === i);
-                let label = detectedAudioMeta[i];
+                const label = trackLabel(detectedAudioMeta[i], `Audio Track ${i + 1}`, false);
 
                 const btn = document.createElement('button');
                 btn.className = isSelected
                     ? 'py-2.5 px-4 rounded-xl bg-sapphire/20 border border-sapphire/50 text-sapphire text-xs font-bold text-left flex justify-between items-center transition'
                     : 'py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold text-left flex justify-between items-center transition';
-                btn.innerHTML = `<span>${label}</span> ${isSelected ? '<i class="fas fa-check text-xs"></i>' : ''}`;
+                const labelSpan = document.createElement('span');
+                labelSpan.textContent = label;
+                btn.appendChild(labelSpan);
+                if (isSelected) {
+                    const chk = document.createElement('i');
+                    chk.className = 'fas fa-check text-xs';
+                    btn.appendChild(chk);
+                }
                 
                 btn.onclick = () => {
                     if(i !== 0) {
@@ -1830,50 +2163,123 @@
             showToast("Searching for Cast devices on your Wi-Fi...");
         }
 
+        // ================= DEVICE-AWARE EXTERNAL PLAYER LAUNCHER =================
+        const EXTERNAL_PLAYERS = {
+            vlc:       { name: 'VLC',        pkg: 'org.videolan.vlc',             m3u: true },
+            mx:        { name: 'MX Player',  pkg: 'com.mxtech.videoplayer.ad' },
+            bs:        { name: 'BSPlayer',   pkg: 'com.bsplayer.bspandroid.free', m3u: true },
+            potplayer: { name: 'PotPlayer',  pcOnly: true },
+            mpv:       { name: 'MPV',        pkg: 'is.xyz.mpv',                   m3u: true },
+            just:      { name: 'Just Player', pkg: 'com.brouken.player',          androidOnly: true },
+            km:        { name: 'KMPlayer',   pkg: 'com.kmplayer',                 m3u: true },
+            nova:      { name: 'Nova',       pkg: 'org.courville.nova',           androidOnly: true }
+        };
+
+        const UA_STR = navigator.userAgent || '';
+        const isIOSDevice = /iPhone|iPad|iPod/i.test(UA_STR) || (/Macintosh/i.test(UA_STR) && navigator.maxTouchPoints > 1);
+        const isAndroidDevice = /Android/i.test(UA_STR)
+            // Android Chrome in "Desktop site" mode reports a Linux desktop UA but still has multi-touch
+            || (/X11; Linux/i.test(UA_STR) && !/CrOS/i.test(UA_STR) && navigator.maxTouchPoints > 1);
+        const isPhoneOrTablet = isAndroidDevice || isIOSDevice
+            || /BlackBerry|IEMobile|Opera Mini|Mobile/i.test(UA_STR)
+            || !!(navigator.userAgentData && navigator.userAgentData.mobile === true);
+
+        function absoluteStreamUrl() {
+            if (/^https?:\/\//i.test(RAW_FILE_URL)) return RAW_FILE_URL;
+            try { return new URL(RAW_FILE_URL, window.location.href).href; } catch (e) { return RAW_FILE_URL; }
+        }
+
+        async function copyTextSafe(text) {
+            try {
+                if (navigator.clipboard && window.isSecureContext) {
+                    await navigator.clipboard.writeText(text);
+                    return true;
+                }
+            } catch (e) {}
+            try {
+                const ta = document.createElement('textarea');
+                ta.value = text;
+                ta.setAttribute('readonly', '');
+                ta.style.cssText = 'position:fixed;top:-1000px;left:-1000px;opacity:0;';
+                document.body.appendChild(ta);
+                ta.select();
+                ta.setSelectionRange(0, text.length);
+                const ok = document.execCommand('copy');
+                document.body.removeChild(ta);
+                return ok;
+            } catch (e) {
+                return false;
+            }
+        }
+
+        function downloadM3U(playerName, streamUrl) {
+            const title = (FILE_NAME || 'Stream').replace(/[\r\n]+/g, ' ');
+            const m3uContent = `#EXTM3U\n#EXTINF:-1,${title}\n#EXTVLCOPT:network-caching=1500\n#EXTVLCOPT:http-reconnect=true\n${streamUrl}\n`;
+            const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
+            const objUrl = URL.createObjectURL(blob);
+            const safeName = `${playerName} - ${FILE_NAME}.m3u`.replace(/[\\/:*?"<>|\r\n]+/g, '_');
+            const link = document.createElement('a');
+            link.href = objUrl;
+            link.download = safeName;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            setTimeout(() => URL.revokeObjectURL(objUrl), 5000);
+        }
+
+        function launchAndroidIntent(p, streamUrl) {
+            const cleanUrl = streamUrl.replace(/^https?:\/\//i, '');
+            const scheme = /^https:/i.test(streamUrl) ? 'https' : 'http';
+            const intentUrl = `intent://${cleanUrl}#Intent;scheme=${scheme};package=${p.pkg};type=video/*;S.title=${encodeURIComponent(FILE_NAME)};end`;
+            let leftPage = false;
+            const onHide = () => { if (document.hidden) leftPage = true; };
+            document.addEventListener('visibilitychange', onHide);
+            window.addEventListener('pagehide', () => { leftPage = true; }, { once: true });
+            showToast(`Opening ${p.name}...`);
+            window.location.href = intentUrl;
+            setTimeout(() => {
+                document.removeEventListener('visibilitychange', onHide);
+                if (!leftPage && !document.hidden) showToast(`Couldn't open ${p.name}. Is it installed?`);
+            }, 2200);
+        }
+
         function launchApp(type) {
-            if (!RAW_FILE_URL) {
+            const p = EXTERNAL_PLAYERS[type];
+            if (!p) return;
+            if (!RAW_FILE_URL || !FILE_URL) {
                 showToast("Stream URL required");
                 return;
             }
-            video.pause();
+            const streamUrl = absoluteStreamUrl();
 
-            if (isMobile) {
-                const cleanUrl = RAW_FILE_URL.replace(/^https?:\/\//, '');
-                const scheme = RAW_FILE_URL.startsWith('https') ? 'https' : 'http';
-                const packages = {
-                    vlc: 'org.videolan.vlc',
-                    mx: 'com.mxtech.videoplayer.ad',
-                    mxpro: 'com.mxtech.videoplayer.pro',
-                    mpv: 'is.xyz.mpv',
-                    just: 'com.brouken.player',
-                    km: 'com.kmplayer',
-                    nova: 'org.courville.nova'
-                };
-                if (packages[type]) {
-                    window.location.href = `intent://${cleanUrl}#Intent;scheme=${scheme};type=video/*;package=${packages[type]};S.title=${encodeURIComponent(FILE_NAME)};end`;
-                } else if (type === 'potplayer') {
-                    window.location.href = `vlc://${RAW_FILE_URL}`;
+            if (isPhoneOrTablet) {
+                // ---------- Android / Mobile ----------
+                if (p.pcOnly) { showToast("PotPlayer is only supported on Windows PC"); return; }
+                video.pause();
+                if (isIOSDevice && !isAndroidDevice) {
+                    // Android intents do not exist on iOS
+                    if (type === 'vlc') {
+                        showToast("Opening VLC...");
+                        window.location.href = `vlc-x-callback://x-callback-url/stream?url=${encodeURIComponent(streamUrl)}`;
+                    } else {
+                        copyTextSafe(streamUrl).then(ok => showToast(ok ? `${p.name}: Stream link copied! Paste it in the app` : "Couldn't copy link"));
+                    }
+                    return;
                 }
+                launchAndroidIntent(p, streamUrl);
             } else {
+                // ---------- PC (Desktop / Laptop) ----------
+                if (p.androidOnly) { showToast("This player is only supported on Android"); return; }
+                video.pause();
                 if (type === 'potplayer') {
-                    navigator.clipboard.writeText(RAW_FILE_URL).catch(() => {});
-                    window.location.href = `potplayer://${RAW_FILE_URL}`;
-                    showToast("Opening PotPlayer...");
-                } else if (type === 'vlc') {
-                    navigator.clipboard.writeText(RAW_FILE_URL).catch(() => {});
-                    const m3uContent = `#EXTM3U\n#EXTINF:-1,${FILE_NAME}\n#EXTVLCOPT:network-caching=5000\n#EXTVLCOPT:http-reconnect=true\n${RAW_FILE_URL}`;
-                    const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = `BoultFlix - ${FILE_NAME}.m3u`;
-                    document.body.appendChild(link);
-                    link.click();
-                    document.body.removeChild(link);
-                    showToast("Launching VLC Playlist...");
+                    copyTextSafe(RAW_FILE_URL); // clipboard fallback if the protocol handler is not registered
+                    showToast("Opening PotPlayer... (link copied as fallback)");
+                    window.location.href = 'potplayer://' + RAW_FILE_URL;
+                } else if (p.m3u) {
+                    downloadM3U(p.name, streamUrl);
+                    showToast(`${p.name}: Playlist downloaded, open it to play`);
                 } else {
-                    navigator.clipboard.writeText(RAW_FILE_URL).then(() => {
-                        showToast(`${type.toUpperCase()}: Stream Link Copied (Press Ctrl+V in Player)`);
-                    });
+                    copyTextSafe(RAW_FILE_URL).then(ok => showToast(ok ? `${p.name}: Stream link copied! Press Ctrl+V in app` : "Couldn't copy link"));
                 }
             }
         }
@@ -1893,6 +2299,7 @@
                 }
                 if (window.hlsInstance) window.hlsInstance.startLoad(parseFloat(savedPos));
             }
+            pendingAutoplay = false;
             closeAllPopups();
             togglePlay();
         };
@@ -1904,6 +2311,7 @@
             }
             if (window.hlsInstance) window.hlsInstance.startLoad(0);
             localStorage.removeItem(SAVED_POS_KEY);
+            pendingAutoplay = false;
             closeAllPopups();
             togglePlay();
         };
