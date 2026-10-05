@@ -1,22 +1,3 @@
-PIC = f"{random.choice(PICS_URL)}?r={get_random_mix_id()}"
-```[cite: 9]
-
-1. **Duto Question Mark (`?`) er Bug:**
-   * Tor `info.py`-te URL chilo: `[https://api.aniwallpaper.workers.dev/random?type=nature](https://api.aniwallpaper.workers.dev/random?type=nature)`
-   * Code-e abar sheshe `?r=...` jog hoye URL-ta hoye jacchilo:
-     `[https://api.aniwallpaper.workers.dev/random?type=nature?r=k9X2mQ](https://api.aniwallpaper.workers.dev/random?type=nature?r=k9X2mQ)`
-   * HTTP URL-e duto `?` thakle Cloudflare Worker query parse korte pare na! Parameter ta hoye jacchilo `type="nature?r=k9X2mQ"`, fole worker error (400/500) return korchilo।
-   * Aar Telegram server oi URL-e request pathiye error paowar karonei logs-e dekhalo: `[400 WEBPAGE_CURL_FAILED] - Telegram server could not fetch the provided URL`[cite: 9]!
-2. **`type=girl`-e keno cholchilo?**
-   * Worker-er default fallback chilo `girl`। Tai URL-e bhul thakleo worker default `girl` return kore dito, kintu `nature`-er khetre sheta fail hoye Telegram cURL error marchilo।
-3. **Fix:**
-   * URL-e aage thekei `?type=nature` thakle porer parameter-e `?r=` hobe na, **`&r=`** hobe। Fole URL hobe: `.../random?type=nature&r=k9X2mQ`। Ete worker thikmoto nature photo pathabe aar Telegram-o bindas fetch korbe[cite: 9]!
-
----
-
-Onno kono kichu touch na kore shudhu oi URL logic fix kora puro updated `plugins/commands.py` code niche roilo[cite: 9]:
-
-```python
 import os
 import re
 import base64
