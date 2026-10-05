@@ -36,7 +36,7 @@ COVERX = is_enabled(environ.get('COVERX', "True"), True) # Use cover image for i
 # If you disable it then bot will use a default thumb for all files
 
 PICS_URL = (environ.get('PICS_URL', 'https://api.aniwallpaper.workers.dev/random?type=nature')).split()
-PICS = (environ.get('PICS', 'https://graph.org/file/56b5deb73f3b132e2bb73.jpg https://graph.org/file/5303692652d91d52180c2.jpg https://graph.org/file/425b6f46efc7c6d64105f.jpg https://graph.org/file/876867e761c6c7a29855b.jpg')).split()  # Sample pic
+PICS = (environ.get('PICS', 'https://api.aniwallpaper.workers.dev/random?type=nature')).split()  # Sample pic
 NOR_IMG = environ.get("NOR_IMG", "https://graph.org/file/e20b5fdaf217252964202.jpg")
 MELCOW_PHOTO = environ.get("MELCOW_PHOTO", "https://graph.org/file/56b5deb73f3b132e2bb73.jpg")
 SPELL_IMG = environ.get("SPELL_IMG", "https://graph.org/file/13702ae26fb05df52667c.jpg")
