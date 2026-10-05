@@ -3,8 +3,6 @@ import re
 import math
 import logging
 import mimetypes
-import asyncio
-import json
 from aiohttp.http_exceptions import BadStatusLine
 from dreamxbotz.Bot import multi_clients, work_loads
 from dreamxbotz.server.exceptions import FIleNotFound, InvalidHash
@@ -15,142 +13,6 @@ import info
 logger = logging.getLogger(__name__)
 
 routes = web.RouteTableDef()
-
-# --- WORLD LANGUAGE WHITELIST & DICTIONARY ---
-LANG_MAP = {
-    "hin": "Hindi", "hindi": "Hindi",
-    "eng": "English", "english": "English",
-    "ben": "Bengali", "bengali": "Bengali", "bangla": "Bengali",
-    "tam": "Tamil", "tamil": "Tamil",
-    "tel": "Telugu", "telugu": "Telugu",
-    "mal": "Malayalam", "malayalam": "Malayalam",
-    "kan": "Kannada", "kannada": "Kannada",
-    "mar": "Marathi", "marathi": "Marathi",
-    "guj": "Gujarati", "gujarati": "Gujarati",
-    "pan": "Punjabi", "pun": "Punjabi", "punjabi": "Punjabi",
-    "urd": "Urdu", "urdu": "Urdu",
-    "jpn": "Japanese", "jap": "Japanese", "japanese": "Japanese",
-    "kor": "Korean", "korean": "Korean",
-    "spa": "Spanish", "spanish": "Spanish",
-    "fre": "French", "fra": "French", "french": "French",
-    "ger": "German", "deu": "German", "german": "German",
-    "rus": "Russian", "russian": "Russian",
-    "chi": "Chinese", "zho": "Chinese", "chinese": "Chinese",
-    "ara": "Arabic", "arabic": "Arabic",
-    "ita": "Italian", "italian": "Italian",
-    "por": "Portuguese", "portuguese": "Portuguese",
-    "tha": "Thai", "thai": "Thai",
-    "vie": "Vietnamese", "vietnamese": "Vietnamese",
-    "ind": "Indonesian", "indonesian": "Indonesian",
-    "tur": "Turkish", "turkish": "Turkish"
-}
-
-STREAM_METADATA_CACHE = {}
-
-def extract_fallback_from_name(filename):
-    lower = str(filename or "").lower()
-    audios = []
-    for k, v in LANG_MAP.items():
-        if re.search(r'\b' + re.escape(k) + r'\b', lower) and v not in audios:
-            audios.append(v)
-    subs = []
-    if any(w in lower for w in ['sub', 'esub', 'subs']):
-        subs = [f"{a} [SDH]" if "sdh" in lower else a for a in audios] if audios else ["English"]
-    return {
-        "audios": audios if audios else ["Default Audio"],
-        "subs": subs if subs else ["Embedded Subtitles (MKV Track)"]
-    }
-
-def clean_track_name(raw_title, raw_lang, track_type, index, fallback_filename=""):
-    raw_title = str(raw_title or "").strip()
-    raw_lang = str(raw_lang or "").strip().lower()
-    fallback_filename = str(fallback_filename or "").lower()
-
-    is_sdh = bool(re.search(r'\b(sdh|cc|hearing impaired)\b', raw_title, re.IGNORECASE))
-    detected_lang = None
-
-    if raw_lang in LANG_MAP:
-        detected_lang = LANG_MAP[raw_lang]
-
-    if not detected_lang and raw_title:
-        title_lower = raw_title.lower()
-        for k, v in LANG_MAP.items():
-            if re.search(r'\b' + re.escape(k) + r'\b', title_lower):
-                detected_lang = v
-                break
-
-    if not detected_lang and fallback_filename:
-        for k, v in LANG_MAP.items():
-            if re.search(r'\b' + re.escape(k) + r'\b', fallback_filename):
-                detected_lang = v
-                break
-
-    if not detected_lang:
-        detected_lang = f"{'Audio' if track_type == 'audio' else 'Subtitle'} {index}"
-
-    if is_sdh and track_type == 'subtitle' and "[SDH]" not in detected_lang:
-        return f"{detected_lang} [SDH]"
-
-    return detected_lang
-
-async def probe_stream_metadata(local_stream_url, file_name=""):
-    if local_stream_url in STREAM_METADATA_CACHE:
-        return STREAM_METADATA_CACHE[local_stream_url]
-
-    # Ultra-optimized ffprobe: shudhu audio & sub scan korbe, video skip korbe
-    cmd = [
-        "ffprobe", "-v", "error",
-        "-select_streams", "a:s",
-        "-show_entries", "stream=index,codec_type:stream_tags=language,title",
-        "-of", "json",
-        "-probesize", "2000000",
-        "-analyzeduration", "2000000",
-        local_stream_url
-    ]
-
-    try:
-        proc = await asyncio.create_subprocess_exec(
-            *cmd,
-            stdout=asyncio.subprocess.PIPE,
-            stderr=asyncio.subprocess.PIPE
-        )
-        stdout, _ = await asyncio.wait_for(proc.communicate(), timeout=8.0)
-        probe = json.loads(stdout.decode('utf-8'))
-
-        audios = []
-        subs = []
-        a_idx, s_idx = 1, 1
-
-        for s in probe.get("streams", []):
-            c_type = s.get("codec_type")
-            tags = s.get("tags", {})
-            title = tags.get("title", "")
-            lang = tags.get("language", "")
-
-            if c_type == "audio":
-                clean_name = clean_track_name(title, lang, "audio", a_idx, file_name)
-                audios.append(clean_name)
-                a_idx += 1
-            elif c_type == "subtitle":
-                clean_name = clean_track_name(title, lang, "subtitle", s_idx, file_name)
-                subs.append(clean_name)
-                s_idx += 1
-
-        if not audios and not subs:
-            res = extract_fallback_from_name(file_name)
-        else:
-            res = {
-                "audios": audios if audios else ["Default Audio"],
-                "subs": subs if subs else ["Embedded Subtitles (MKV Track)"]
-            }
-
-        STREAM_METADATA_CACHE[local_stream_url] = res
-        return res
-    except Exception as e:
-        logger.warning(f"Fast ffprobe timed out ({e}), using filename fallback")
-        res = extract_fallback_from_name(file_name)
-        STREAM_METADATA_CACHE[local_stream_url] = res
-        return res
 
 @routes.get("/favicon.ico")
 async def favicon_route_handler(request):
@@ -179,21 +41,8 @@ async def watch_handler(request: web.Request):
             id = int(re.search(r"(\d+)(?:\/\S+)?", path).group(1))
             secure_hash = request.rel_url.query.get("hash")
 
-        html_content = await render_page(id, secure_hash)
-
-        # Internal localhost connection (Bypasses Domain/Hairpin NAT Timeout)
-        local_stream_url = f"http://127.0.0.1:{info.PORT}/{secure_hash}{id}"
-        meta = await probe_stream_metadata(local_stream_url)
-
-        script_inject = f"""
-        <script>
-            window.__SERVER_AUDIOS__ = {json.dumps(meta['audios'])};
-            window.__SERVER_SUBS__ = {json.dumps(meta['subs'])};
-        </script>
-        """
-        html_content = html_content.replace("</head>", f"{script_inject}\n</head>")
-
-        return web.Response(text=html_content, content_type='text/html')
+        # HTML template render (No ffprobe injection)
+        return web.Response(text=await render_page(id, secure_hash), content_type='text/html')
     except InvalidHash as e:
         raise web.HTTPForbidden(text=e.message)
     except FIleNotFound as e:
@@ -238,6 +87,7 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
     range_header = request.headers.get("Range", None)
     is_download = request.rel_url.query.get("dl") == "1"
 
+    # Multi-client automatic failover retry logic (Prevents 'Site wasn't available' crashes)
     client_indices = sorted(work_loads.keys(), key=lambda k: work_loads[k])
     file_id = None
     tg_connect = None
@@ -285,6 +135,7 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
             headers={"Content-Range": f"bytes */{file_size}"},
         )
 
+    # 1MB chunk to match Telegram blocks and prevent buffer stalls
     chunk_size = 1024 * 1024
     until_bytes = min(until_bytes, file_size - 1)
 
