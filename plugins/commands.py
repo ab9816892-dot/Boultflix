@@ -7,6 +7,7 @@ import asyncio
 import string
 import sys
 import pytz
+import time
 from .pmfilter import auto_filter 
 from Script import script
 from dreamxbotz.Bot import dreamxbotz
@@ -34,6 +35,13 @@ logger = logging.getLogger(__name__)
 TIMEZONE = "Asia/Kolkata"
 BATCH_FILES = {}
 REQUEST_INVITE_LINK_CACHE: dict[int, str] = {}
+
+
+def get_start_pic():
+    sources = PICS_URL if PICS_URL else PICS
+    chosen = random.choice(sources)
+    sep = "&" if "?" in chosen else "?"
+    return f"{chosen}{sep}r={get_random_mix_id()}"
 
 
 @Client.on_message(filters.command("start") & filters.incoming)
@@ -240,13 +248,8 @@ async def start(client, message):
                 gtxt = "Gᴏᴏᴅ ᴇᴠᴇɴɪɴɢ 🌘"
             else:
                 gtxt = "Gᴏᴏᴅ ɴɪɢʜᴛ 🌑"
-            if len(PICS) == 1:
-                PIC = PICS[0]
-            else:
-                try:      
-                    PIC = f"{random.choice(PICS_URL)}?r={get_random_mix_id()}"
-                except Exception:
-                    PIC = f"{random.choice(PICS)}&t={int(time.time() * 1000)}"
+            
+            PIC = get_start_pic()
             await message.reply_photo(
                 photo=PIC,
                 caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
@@ -276,13 +279,8 @@ async def start(client, message):
                 gtxt = "Gᴏᴏᴅ ᴇᴠᴇɴɪɴɢ 🌘"
             else:
                 gtxt = "Gᴏᴏᴅ ɴɪɢʜᴛ 🌑"
-            if len(PICS) == 1:
-                PIC = PICS[0]
-            else:
-                try:
-                    PIC = f"{random.choice(PICS_URL)}?r={get_random_mix_id()}"
-                except Exception:
-                    PIC = f"{random.choice(PICS)}&t={int(time.time() * 1000)}"
+            
+            PIC = get_start_pic()
             await message.reply_photo(
                 photo=PIC,
                 caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
@@ -1628,6 +1626,3 @@ async def clean_groups_handler(client, message):
         except Exception as e:
             logger.error("Error in clean_groups loop: %s", e)
     await msg.edit(f'**Clean Groups Complete**\n\nTotal Processed: {processed}\nDeleted: {deleted_count}')
-
-
-
