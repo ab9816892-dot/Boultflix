@@ -246,7 +246,7 @@ async def start(client, message):
                 try:      
                     PIC = f"{random.choice(PICS_URL)}?r={get_random_mix_id()}"
                 except Exception:
-                    PIC = random.choice(PICS)
+                    PIC = f"{random.choice(PICS)}&t={int(time.time() * 1000)}"
             await message.reply_photo(
                 photo=PIC,
                 caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
@@ -282,7 +282,7 @@ async def start(client, message):
                 try:
                     PIC = f"{random.choice(PICS_URL)}?r={get_random_mix_id()}"
                 except Exception:
-                    PIC = random.choice(PICS)
+                    PIC = f"{random.choice(PICS)}&t={int(time.time() * 1000)}"
             await message.reply_photo(
                 photo=PIC,
                 caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
