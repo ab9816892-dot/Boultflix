@@ -8,6 +8,10 @@ import string
 import sys
 import pytz
 import time
+import io
+import aiohttp
+from bs4 import BeautifulSoup
+from urllib.parse import urljoin
 from .pmfilter import auto_filter 
 from Script import script
 from dreamxbotz.Bot import dreamxbotz
@@ -25,8 +29,7 @@ from info import (
     VERIFY_IMG, TWO_VERIFY_GAP, UPDATE_CHNL_LNK, PICS, PICS_URL, ADMINS, SUBSCRIPTION, OWNER_LNK , 
     OWNER_UPI_ID, QR_CODE, AUTH_CHANNELS, AUTH_REQ_CHANNELS, FSUB_PICS, THREE_VERIFY_GAP, CUSTOM_FILE_CAPTION,
     COVERX, PROTECT_CONTENT, DELETE_TIME, PREMIUM_STREAM_MODE, STREAM_MODE, SUPPORT_CHAT_ID, REQST_CHANNEL,
-    LOG_CHANNEL, SHORTENER_API, SHORTENER_API2, SHORTENER_API3, SHORTENER_WEBSITE, SHORTENER_WEBSITE2, SHORTENER_WEBSITE3,
-    
+    SHORTENER_API, SHORTENER_API2, SHORTENER_API3, SHORTENER_WEBSITE, SHORTENER_WEBSITE2, SHORTENER_WEBSITE3,
 )
 from utils import get_settings, save_group_settings, is_subscribed, is_req_subscribed, get_size, get_shortlink, is_check_admin, temp, get_readable_time, get_time, generate_settings_text, log_error, clean_filename, get_random_mix_id
 
@@ -36,12 +39,55 @@ TIMEZONE = "Asia/Kolkata"
 BATCH_FILES = {}
 REQUEST_INVITE_LINK_CACHE: dict[int, str] = {}
 
+FALLBACK_NATURE_PICS = [
+    "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
+    "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05",
+    "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d",
+    "https://images.unsplash.com/photo-1426604966848-d7adac402bff"
+]
 
-def get_start_pic():
+async def get_start_photo():
     sources = PICS_URL if PICS_URL else PICS
     chosen = random.choice(sources)
     sep = "&" if "?" in chosen else "?"
-    return f"{chosen}{sep}r={get_random_mix_id()}"
+    target_url = f"{chosen}{sep}r={get_random_mix_id()}"
+
+    if any(h in chosen for h in ["graph.org", "unsplash.com", "ibb.co", "cloudinary.com"]):
+        return target_url
+
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
+        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
+    }
+    try:
+        timeout = aiohttp.ClientTimeout(total=7)
+        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
+            async with session.get(target_url, allow_redirects=True) as resp:
+                if resp.status == 200:
+                    ctype = resp.headers.get("Content-Type", "").lower()
+                    if "image" in ctype:
+                        img_bytes = io.BytesIO(await resp.read())
+                        img_bytes.name = "wallpaper.jpg"
+                        return img_bytes
+                    html_text = await resp.text()
+                    soup = BeautifulSoup(html_text, "html.parser")
+                    meta_tag = soup.find("meta", property="og:image") or soup.find("meta", attrs={"name": "twitter:image"})
+                    img_src = meta_tag.get("content") if meta_tag else None
+                    if not img_src:
+                        img_elem = soup.find("img", src=True)
+                        if img_elem:
+                            img_src = img_elem["src"]
+                    if img_src:
+                        full_img_url = urljoin(str(resp.url), img_src)
+                        async with session.get(full_img_url) as img_resp:
+                            if img_resp.status == 200:
+                                img_bytes = io.BytesIO(await img_resp.read())
+                                img_bytes.name = "wallpaper.jpg"
+                                return img_bytes
+    except Exception as e:
+        logger.warning(f"[START_PHOTO] Fetching from worker failed ({e}); using nature fallback")
+
+    return random.choice(FALLBACK_NATURE_PICS)
 
 
 @Client.on_message(filters.command("start") & filters.incoming)
@@ -111,7 +157,6 @@ async def start(client, message):
             asyncio.create_task(_delete_msg(dlt, 300))
             return
 
-            # Send files automatically - DISABLED, file will be sent only after button click
             is_sendall = m.command[1].startswith('sendall')
             decoded_file_id = file_id
             if not is_sendall:
@@ -141,7 +186,7 @@ async def start(client, message):
                     size = get_size(files1.file_size)
                     f_caption = files1.caption
                     
-                    DREAMX_CAPTION = settings.get('caption', CUSTOM_FILE_CAPTION) if settings else CUSTOM_FILE_CAPTION if settings else CUSTOM_FILE_CAPTION
+                    DREAMX_CAPTION = settings.get('caption', CUSTOM_FILE_CAPTION) if settings else CUSTOM_FILE_CAPTION
                     if DREAMX_CAPTION:
                         try:
                             f_caption = DREAMX_CAPTION.format(file_name='' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)
@@ -156,7 +201,7 @@ async def start(client, message):
                         cover=cover,
                         file_id=file_id_item,
                         caption=f_caption,
-                        protect_content=settings.get('file_secure', PROTECT_CONTENT) if settings else PROTECT_CONTENT if settings else PROTECT_CONTENT
+                        protect_content=settings.get('file_secure', PROTECT_CONTENT) if settings else PROTECT_CONTENT
                     )
                     filesarr.append(sent_msg)
             else:
@@ -190,7 +235,6 @@ async def start(client, message):
                 )
                 filesarr.append(sent_msg)
 
-            # Auto-Delete Logic
             if settings and settings.get('auto_delete', True) and filesarr:
                 k = await client.send_message(chat_id=message.from_user.id, text=script.DEL_MSG.format(get_time(DELETE_TIME)), parse_mode=enums.ParseMode.HTML)
                 
@@ -249,13 +293,21 @@ async def start(client, message):
             else:
                 gtxt = "Gᴏᴏᴅ ɴɪɢʜᴛ 🌑"
             
-            PIC = get_start_pic()
-            await message.reply_photo(
-                photo=PIC,
-                caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
-                reply_markup=reply_markup,
-                parse_mode=enums.ParseMode.HTML
-            )
+            photo_payload = await get_start_photo()
+            try:
+                await message.reply_photo(
+                    photo=photo_payload,
+                    caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
+                    reply_markup=reply_markup,
+                    parse_mode=enums.ParseMode.HTML
+                )
+            except Exception as e:
+                logger.warning(f"reply_photo failed ({e}); sending text fallback")
+                await message.reply_text(
+                    text=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
+                    reply_markup=reply_markup,
+                    parse_mode=enums.ParseMode.HTML
+                )
             return
 
         if len(message.command) == 2 and message.command[1] in ["subscribe", "error", "okay", "help"]:
@@ -280,13 +332,21 @@ async def start(client, message):
             else:
                 gtxt = "Gᴏᴏᴅ ɴɪɢʜᴛ 🌑"
             
-            PIC = get_start_pic()
-            await message.reply_photo(
-                photo=PIC,
-                caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
-                reply_markup=reply_markup,
-                parse_mode=enums.ParseMode.HTML
-            )
+            photo_payload = await get_start_photo()
+            try:
+                await message.reply_photo(
+                    photo=photo_payload,
+                    caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
+                    reply_markup=reply_markup,
+                    parse_mode=enums.ParseMode.HTML
+                )
+            except Exception as e:
+                logger.warning(f"reply_photo failed ({e}); sending text fallback")
+                await message.reply_text(
+                    text=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
+                    reply_markup=reply_markup,
+                    parse_mode=enums.ParseMode.HTML
+                )
             return
         if message.command[1].startswith("reff_"):
             try:
@@ -415,7 +475,6 @@ async def start(client, message):
                 settings = await get_settings(grp_id)
                 is_second_shortener = await db.use_second_shortener(user_id, settings.get('verify_time', TWO_VERIFY_GAP)) 
                 is_third_shortener = await db.use_third_shortener(user_id, settings.get('third_verify_time', THREE_VERIFY_GAP))
-                # reset after 3rd expires -> back to 1st
                 if is_third_shortener:
                     try:
                         await db.update_notcopy_user(user_id, {"last_verified": None, "second_time_verified": None, "third_time_verified": None})
@@ -478,7 +537,7 @@ async def start(client, message):
                     size = get_size(files1.file_size)
                     f_caption = files1.caption
                     settings = await get_settings(int(grp_id))
-                    DREAMX_CAPTION = settings.get('caption', CUSTOM_FILE_CAPTION) if settings else CUSTOM_FILE_CAPTION if settings else CUSTOM_FILE_CAPTION
+                    DREAMX_CAPTION = settings.get('caption', CUSTOM_FILE_CAPTION) if settings else CUSTOM_FILE_CAPTION
                     if DREAMX_CAPTION:
                         try:
                             f_caption=DREAMX_CAPTION.format(file_name= '' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)
@@ -561,7 +620,6 @@ async def start(client, message):
                     except Exception:
                         return
                 await msg.edit_caption(f_caption, reply_markup=InlineKeyboardMarkup(btn))
-                # FIXED: removed 
                 k = await msg.reply(script.DEL_MSG.format(get_time(DELETE_TIME)), parse_mode=enums.ParseMode.HTML)
                 await asyncio.sleep(DELETE_TIME)
                 await msg.delete()
@@ -937,10 +995,10 @@ async def send_msg(bot, message):
         try:
             user = await bot.get_users(target_id)
             users = await db.get_all_users()
+            out = ""
             async for usr in users:
-                out += f"{usr['id']}"
-                out += '\n'
-            if str(user.id) in str(out):
+                out += f"{usr['id']}\n"
+            if str(user.id) in out:
                 await message.reply_to_message.copy(int(user.id))
                 success = True
             else:
