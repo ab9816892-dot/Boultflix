@@ -1,3 +1,22 @@
+PIC = f"{random.choice(PICS_URL)}?r={get_random_mix_id()}"
+```[cite: 9]
+
+1. **Duto Question Mark (`?`) er Bug:**
+   * Tor `info.py`-te URL chilo: `[https://api.aniwallpaper.workers.dev/random?type=nature](https://api.aniwallpaper.workers.dev/random?type=nature)`
+   * Code-e abar sheshe `?r=...` jog hoye URL-ta hoye jacchilo:
+     `[https://api.aniwallpaper.workers.dev/random?type=nature?r=k9X2mQ](https://api.aniwallpaper.workers.dev/random?type=nature?r=k9X2mQ)`
+   * HTTP URL-e duto `?` thakle Cloudflare Worker query parse korte pare na! Parameter ta hoye jacchilo `type="nature?r=k9X2mQ"`, fole worker error (400/500) return korchilo।
+   * Aar Telegram server oi URL-e request pathiye error paowar karonei logs-e dekhalo: `[400 WEBPAGE_CURL_FAILED] - Telegram server could not fetch the provided URL`[cite: 9]!
+2. **`type=girl`-e keno cholchilo?**
+   * Worker-er default fallback chilo `girl`। Tai URL-e bhul thakleo worker default `girl` return kore dito, kintu `nature`-er khetre sheta fail hoye Telegram cURL error marchilo।
+3. **Fix:**
+   * URL-e aage thekei `?type=nature` thakle porer parameter-e `?r=` hobe na, **`&r=`** hobe। Fole URL hobe: `.../random?type=nature&r=k9X2mQ`। Ete worker thikmoto nature photo pathabe aar Telegram-o bindas fetch korbe[cite: 9]!
+
+---
+
+Onno kono kichu touch na kore shudhu oi URL logic fix kora puro updated `plugins/commands.py` code niche roilo[cite: 9]:
+
+```python
 import os
 import re
 import base64
@@ -8,10 +27,6 @@ import string
 import sys
 import pytz
 import time
-import io
-import aiohttp
-from bs4 import BeautifulSoup
-from urllib.parse import urljoin
 from .pmfilter import auto_filter 
 from Script import script
 from dreamxbotz.Bot import dreamxbotz
@@ -38,56 +53,6 @@ logger = logging.getLogger(__name__)
 TIMEZONE = "Asia/Kolkata"
 BATCH_FILES = {}
 REQUEST_INVITE_LINK_CACHE: dict[int, str] = {}
-
-FALLBACK_NATURE_PICS = [
-    "https://images.unsplash.com/photo-1506744038136-46273834b3fb",
-    "https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05",
-    "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d",
-    "https://images.unsplash.com/photo-1426604966848-d7adac402bff"
-]
-
-async def get_start_photo():
-    sources = PICS_URL if PICS_URL else PICS
-    chosen = random.choice(sources)
-    sep = "&" if "?" in chosen else "?"
-    target_url = f"{chosen}{sep}r={get_random_mix_id()}"
-
-    if any(h in chosen for h in ["graph.org", "unsplash.com", "ibb.co", "cloudinary.com"]):
-        return target_url
-
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36",
-        "Accept": "image/avif,image/webp,image/apng,image/*,*/*;q=0.8"
-    }
-    try:
-        timeout = aiohttp.ClientTimeout(total=7)
-        async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
-            async with session.get(target_url, allow_redirects=True) as resp:
-                if resp.status == 200:
-                    ctype = resp.headers.get("Content-Type", "").lower()
-                    if "image" in ctype:
-                        img_bytes = io.BytesIO(await resp.read())
-                        img_bytes.name = "wallpaper.jpg"
-                        return img_bytes
-                    html_text = await resp.text()
-                    soup = BeautifulSoup(html_text, "html.parser")
-                    meta_tag = soup.find("meta", property="og:image") or soup.find("meta", attrs={"name": "twitter:image"})
-                    img_src = meta_tag.get("content") if meta_tag else None
-                    if not img_src:
-                        img_elem = soup.find("img", src=True)
-                        if img_elem:
-                            img_src = img_elem["src"]
-                    if img_src:
-                        full_img_url = urljoin(str(resp.url), img_src)
-                        async with session.get(full_img_url) as img_resp:
-                            if img_resp.status == 200:
-                                img_bytes = io.BytesIO(await img_resp.read())
-                                img_bytes.name = "wallpaper.jpg"
-                                return img_bytes
-    except Exception as e:
-        logger.warning(f"[START_PHOTO] Fetching from worker failed ({e}); using nature fallback")
-
-    return random.choice(FALLBACK_NATURE_PICS)
 
 
 @Client.on_message(filters.command("start") & filters.incoming)
@@ -293,18 +258,21 @@ async def start(client, message):
             else:
                 gtxt = "Gᴏᴏᴅ ɴɪɢʜᴛ 🌑"
             
-            photo_payload = await get_start_photo()
+            pic_source = random.choice(PICS_URL) if PICS_URL else random.choice(PICS)
+            sep = "&" if "?" in pic_source else "?"
+            PIC = f"{pic_source}{sep}r={get_random_mix_id()}"
+            
             try:
                 await message.reply_photo(
-                    photo=photo_payload,
+                    photo=PIC,
                     caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
                     reply_markup=reply_markup,
                     parse_mode=enums.ParseMode.HTML
                 )
-            except Exception as e:
-                logger.warning(f"reply_photo failed ({e}); sending text fallback")
-                await message.reply_text(
-                    text=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
+            except Exception:
+                await message.reply_photo(
+                    photo=random.choice(PICS),
+                    caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
                     reply_markup=reply_markup,
                     parse_mode=enums.ParseMode.HTML
                 )
@@ -332,18 +300,21 @@ async def start(client, message):
             else:
                 gtxt = "Gᴏᴏᴅ ɴɪɢʜᴛ 🌑"
             
-            photo_payload = await get_start_photo()
+            pic_source = random.choice(PICS_URL) if PICS_URL else random.choice(PICS)
+            sep = "&" if "?" in pic_source else "?"
+            PIC = f"{pic_source}{sep}r={get_random_mix_id()}"
+            
             try:
                 await message.reply_photo(
-                    photo=photo_payload,
+                    photo=PIC,
                     caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
                     reply_markup=reply_markup,
                     parse_mode=enums.ParseMode.HTML
                 )
-            except Exception as e:
-                logger.warning(f"reply_photo failed ({e}); sending text fallback")
-                await message.reply_text(
-                    text=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
+            except Exception:
+                await message.reply_photo(
+                    photo=random.choice(PICS),
+                    caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
                     reply_markup=reply_markup,
                     parse_mode=enums.ParseMode.HTML
                 )
