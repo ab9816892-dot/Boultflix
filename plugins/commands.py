@@ -7,7 +7,6 @@ import asyncio
 import string
 import sys
 import pytz
-import time
 from .pmfilter import auto_filter 
 from Script import script
 from dreamxbotz.Bot import dreamxbotz
@@ -25,7 +24,8 @@ from info import (
     VERIFY_IMG, TWO_VERIFY_GAP, UPDATE_CHNL_LNK, PICS, PICS_URL, ADMINS, SUBSCRIPTION, OWNER_LNK , 
     OWNER_UPI_ID, QR_CODE, AUTH_CHANNELS, AUTH_REQ_CHANNELS, FSUB_PICS, THREE_VERIFY_GAP, CUSTOM_FILE_CAPTION,
     COVERX, PROTECT_CONTENT, DELETE_TIME, PREMIUM_STREAM_MODE, STREAM_MODE, SUPPORT_CHAT_ID, REQST_CHANNEL,
-    SHORTENER_API, SHORTENER_API2, SHORTENER_API3, SHORTENER_WEBSITE, SHORTENER_WEBSITE2, SHORTENER_WEBSITE3,
+    LOG_CHANNEL, SHORTENER_API, SHORTENER_API2, SHORTENER_API3, SHORTENER_WEBSITE, SHORTENER_WEBSITE2, SHORTENER_WEBSITE3,
+    
 )
 from utils import get_settings, save_group_settings, is_subscribed, is_req_subscribed, get_size, get_shortlink, is_check_admin, temp, get_readable_time, get_time, generate_settings_text, log_error, clean_filename, get_random_mix_id
 
@@ -103,6 +103,7 @@ async def start(client, message):
             asyncio.create_task(_delete_msg(dlt, 300))
             return
 
+            # Send files automatically - DISABLED, file will be sent only after button click
             is_sendall = m.command[1].startswith('sendall')
             decoded_file_id = file_id
             if not is_sendall:
@@ -132,7 +133,7 @@ async def start(client, message):
                     size = get_size(files1.file_size)
                     f_caption = files1.caption
                     
-                    DREAMX_CAPTION = settings.get('caption', CUSTOM_FILE_CAPTION) if settings else CUSTOM_FILE_CAPTION
+                    DREAMX_CAPTION = settings.get('caption', CUSTOM_FILE_CAPTION) if settings else CUSTOM_FILE_CAPTION if settings else CUSTOM_FILE_CAPTION
                     if DREAMX_CAPTION:
                         try:
                             f_caption = DREAMX_CAPTION.format(file_name='' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)
@@ -147,7 +148,7 @@ async def start(client, message):
                         cover=cover,
                         file_id=file_id_item,
                         caption=f_caption,
-                        protect_content=settings.get('file_secure', PROTECT_CONTENT) if settings else PROTECT_CONTENT
+                        protect_content=settings.get('file_secure', PROTECT_CONTENT) if settings else PROTECT_CONTENT if settings else PROTECT_CONTENT
                     )
                     filesarr.append(sent_msg)
             else:
@@ -181,6 +182,7 @@ async def start(client, message):
                 )
                 filesarr.append(sent_msg)
 
+            # Auto-Delete Logic
             if settings and settings.get('auto_delete', True) and filesarr:
                 k = await client.send_message(chat_id=message.from_user.id, text=script.DEL_MSG.format(get_time(DELETE_TIME)), parse_mode=enums.ParseMode.HTML)
                 
@@ -238,25 +240,19 @@ async def start(client, message):
                 gtxt = "Gᴏᴏᴅ ᴇᴠᴇɴɪɴɢ 🌘"
             else:
                 gtxt = "Gᴏᴏᴅ ɴɪɢʜᴛ 🌑"
-            
-            pic_source = random.choice(PICS_URL) if PICS_URL else random.choice(PICS)
-            sep = "&" if "?" in pic_source else "?"
-            PIC = f"{pic_source}{sep}r={get_random_mix_id()}"
-            
-            try:
-                await message.reply_photo(
-                    photo=PIC,
-                    caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
-                    reply_markup=reply_markup,
-                    parse_mode=enums.ParseMode.HTML
-                )
-            except Exception:
-                await message.reply_photo(
-                    photo=random.choice(PICS),
-                    caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
-                    reply_markup=reply_markup,
-                    parse_mode=enums.ParseMode.HTML
-                )
+            if len(PICS) == 1:
+                PIC = PICS[0]
+            else:
+                try:      
+                    PIC = f"{random.choice(PICS_URL)}?r={get_random_mix_id()}"
+                except Exception:
+                    PIC = random.choice(PICS)
+            await message.reply_photo(
+                photo=PIC,
+                caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
+                reply_markup=reply_markup,
+                parse_mode=enums.ParseMode.HTML
+            )
             return
 
         if len(message.command) == 2 and message.command[1] in ["subscribe", "error", "okay", "help"]:
@@ -280,25 +276,19 @@ async def start(client, message):
                 gtxt = "Gᴏᴏᴅ ᴇᴠᴇɴɪɴɢ 🌘"
             else:
                 gtxt = "Gᴏᴏᴅ ɴɪɢʜᴛ 🌑"
-            
-            pic_source = random.choice(PICS_URL) if PICS_URL else random.choice(PICS)
-            sep = "&" if "?" in pic_source else "?"
-            PIC = f"{pic_source}{sep}r={get_random_mix_id()}"
-            
-            try:
-                await message.reply_photo(
-                    photo=PIC,
-                    caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
-                    reply_markup=reply_markup,
-                    parse_mode=enums.ParseMode.HTML
-                )
-            except Exception:
-                await message.reply_photo(
-                    photo=random.choice(PICS),
-                    caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
-                    reply_markup=reply_markup,
-                    parse_mode=enums.ParseMode.HTML
-                )
+            if len(PICS) == 1:
+                PIC = PICS[0]
+            else:
+                try:
+                    PIC = f"{random.choice(PICS_URL)}?r={get_random_mix_id()}"
+                except Exception:
+                    PIC = random.choice(PICS)
+            await message.reply_photo(
+                photo=PIC,
+                caption=script.START_TXT.format(message.from_user.mention, gtxt, temp.U_NAME, temp.B_NAME),
+                reply_markup=reply_markup,
+                parse_mode=enums.ParseMode.HTML
+            )
             return
         if message.command[1].startswith("reff_"):
             try:
@@ -427,6 +417,7 @@ async def start(client, message):
                 settings = await get_settings(grp_id)
                 is_second_shortener = await db.use_second_shortener(user_id, settings.get('verify_time', TWO_VERIFY_GAP)) 
                 is_third_shortener = await db.use_third_shortener(user_id, settings.get('third_verify_time', THREE_VERIFY_GAP))
+                # reset after 3rd expires -> back to 1st
                 if is_third_shortener:
                     try:
                         await db.update_notcopy_user(user_id, {"last_verified": None, "second_time_verified": None, "third_time_verified": None})
@@ -489,7 +480,7 @@ async def start(client, message):
                     size = get_size(files1.file_size)
                     f_caption = files1.caption
                     settings = await get_settings(int(grp_id))
-                    DREAMX_CAPTION = settings.get('caption', CUSTOM_FILE_CAPTION) if settings else CUSTOM_FILE_CAPTION
+                    DREAMX_CAPTION = settings.get('caption', CUSTOM_FILE_CAPTION) if settings else CUSTOM_FILE_CAPTION if settings else CUSTOM_FILE_CAPTION
                     if DREAMX_CAPTION:
                         try:
                             f_caption=DREAMX_CAPTION.format(file_name= '' if title is None else title, file_size='' if size is None else size, file_caption='' if f_caption is None else f_caption)
@@ -572,6 +563,7 @@ async def start(client, message):
                     except Exception:
                         return
                 await msg.edit_caption(f_caption, reply_markup=InlineKeyboardMarkup(btn))
+                # FIXED: removed 
                 k = await msg.reply(script.DEL_MSG.format(get_time(DELETE_TIME)), parse_mode=enums.ParseMode.HTML)
                 await asyncio.sleep(DELETE_TIME)
                 await msg.delete()
@@ -947,10 +939,10 @@ async def send_msg(bot, message):
         try:
             user = await bot.get_users(target_id)
             users = await db.get_all_users()
-            out = ""
             async for usr in users:
-                out += f"{usr['id']}\n"
-            if str(user.id) in out:
+                out += f"{usr['id']}"
+                out += '\n'
+            if str(user.id) in str(out):
                 await message.reply_to_message.copy(int(user.id))
                 success = True
             else:
@@ -1636,3 +1628,5 @@ async def clean_groups_handler(client, message):
         except Exception as e:
             logger.error("Error in clean_groups loop: %s", e)
     await msg.edit(f'**Clean Groups Complete**\n\nTotal Processed: {processed}\nDeleted: {deleted_count}')
+
+
