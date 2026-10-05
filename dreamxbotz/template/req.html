@@ -271,25 +271,7 @@
         }
 
         /* VLC Player Minimal Subtitles: Bold White + Soft Drop Shadow, No Box */
-        #custom-sub-overlay {
-            position: absolute;
-            bottom: 12%;
-            left: 5%;
-            right: 5%;
-            text-align: center;
-            z-index: 24;
-            pointer-events: none;
-            font-family: Arial, Helvetica, sans-serif;
-            font-weight: 700;
-            color: #ffffff;
-            font-size: calc(clamp(1.15rem, 2.5vw, 1.65rem) * var(--sub-scale));
-            text-shadow: 
-                0 1px 2px #000000,
-                0 2px 4px #000000,
-                0 0 8px rgba(0, 0, 0, 0.95);
-            line-height: 1.35;
-            transition: bottom 0.25s ease;
-        }
+
 
         .hud {
             position: absolute;
@@ -305,40 +287,31 @@
         }
         .hud.hidden-hud { opacity: 0; visibility: hidden; pointer-events: none; }
 
-        .double-tap-zone {
-            position: absolute;
-            top: 10%; bottom: 10%;
-            width: 45%;
-            z-index: 25;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            pointer-events: auto;
-        }
-        .dt-left { left: 0; }
-        .dt-right { right: 0; }
-        .minimal-skip-pill {
-            background: rgba(8, 14, 28, 0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(0, 210, 255, 0.5);
-            padding: 8px 18px;
-            border-radius: 99px;
-            color: #00d2ff;
-            font-size: 0.85rem;
-            font-weight: 800;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            opacity: 0;
-            transform: scale(0.85);
-            pointer-events: none;
-        }
-        .skip-animate { animation: minimalSkipPop 0.45s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
-        @keyframes minimalSkipPop {
-            0% { opacity: 0; transform: scale(0.8); }
-            35% { opacity: 1; transform: scale(1.1); }
-            100% { opacity: 0; transform: scale(1); }
-        }
+        .dt-zone { position: absolute; top: 0; bottom: 0; width: 50%; z-index: 36; overflow: hidden; display: flex; align-items: center; justify-content: center; pointer-events: none; }
+        .dt-left { left: 0; } .dt-right { right: 0; }
+        .dt-ripple { position: absolute; inset: 0; background: rgba(255,255,255,0.2); opacity: 0; }
+        .dt-left .dt-ripple { border-radius: 0 100% 100% 0 / 0 50% 50% 0; transform-origin: left center; }
+        .dt-right .dt-ripple { border-radius: 100% 0 0 100% / 50% 0 0 50%; transform-origin: right center; }
+        .dt-info { position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; color: #fff; font-weight: 800; font-size: 0.8rem; opacity: 0; text-shadow: 0 1px 4px #000; }
+        .dt-arrows { display: flex; font-size: 1.15rem; }
+        .dt-right .dt-arrows { flex-direction: row; } .dt-left .dt-arrows { flex-direction: row-reverse; }
+        .dt-arrows i { opacity: 0.25; }
+        .dt-show .dt-ripple { animation: dtRipple 0.75s ease-out forwards; }
+        .dt-show .dt-info { animation: dtFade 0.75s ease-out forwards; }
+        .dt-show .dt-arrows i { animation: dtJump 0.6s ease-in-out infinite; }
+        .dt-arrows i:nth-child(2) { animation-delay: 0.12s !important; } .dt-arrows i:nth-child(3) { animation-delay: 0.24s !important; }
+        .dt-left .dt-arrows i { animation-name: dtJumpL !important; }
+        @keyframes dtRipple { 0% { opacity: 0; transform: scale(0.6); } 25% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(1); } }
+        @keyframes dtFade { 0%,100% { opacity: 0; } 15%,70% { opacity: 1; } }
+        @keyframes dtJump { 0%,100% { opacity: 0.25; transform: translateX(0); } 50% { opacity: 1; transform: translateX(6px); } }
+        @keyframes dtJumpL { 0%,100% { opacity: 0.25; transform: translateX(0); } 50% { opacity: 1; transform: translateX(-6px); } }
+
+        /* Spinner always wins over center controls */
+        #video-loader:not(.hidden) ~ .hud #center-controls { display: none !important; opacity: 0 !important; pointer-events: none !important; }
+        /* Top title bar fades with the HUD */
+        .hud-top { transition: opacity 0.25s ease, transform 0.25s ease; }
+        .hud.hidden-hud .hud-top { opacity: 0; transform: translateY(-8px); pointer-events: none; }
+        #unlock-btn { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); z-index: 60; }
 
         .progress-filled {
             position: absolute;
@@ -614,9 +587,12 @@
             </div>
             <span class="font-['Outfit'] font-black text-base md:text-xl tracking-wider brand-text">BOULTFLIX</span>
         </a>
-        <a href="https://t.me/BoultFlix" target="_blank" class="bg-gradient-to-r from-sapphire to-cobalt hover:from-cyan-300 hover:to-blue-600 px-4 py-1.5 rounded-full text-[11px] md:text-xs font-bold tracking-wide text-black transition inline-flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(0,210,255,0.4)] active:scale-95 leading-none h-8">
+        <div class="flex items-center gap-2">
+            <button id="btn-shortcuts" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-gray-200 border border-white/10 transition active:scale-95"><i class="fas fa-keyboard text-sapphire"></i><span>Shortcuts</span></button>
+            <a href="https://t.me/BoultFlix" target="_blank" class="bg-gradient-to-r from-sapphire to-cobalt hover:from-cyan-300 hover:to-blue-600 px-4 py-1.5 rounded-full text-[11px] md:text-xs font-bold tracking-wide text-black transition inline-flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(0,210,255,0.4)] active:scale-95 leading-none h-8">
             <i class="fab fa-telegram-plane"></i><span>Join Channel</span>
         </a>
+        </div>
     </nav>
 
     <!-- VIEW 1: MAIN OTT STREAMING INTERFACE -->
@@ -636,9 +612,6 @@
         <div class="glass-panel p-0.5 sm:p-1 mb-4 w-full">
             <div class="player-container" id="player-container">
                 <video id="video-player" playsinline preload="auto" x-webkit-airplay="allow" crossorigin="anonymous"></video>
-
-                <!-- Subtitle Text Overlay (Clean VLC Style) -->
-                <div id="custom-sub-overlay"></div>
 
                 <!-- Network Buffer Spinner -->
                 <div id="video-loader" class="hidden">
@@ -672,18 +645,17 @@
                     </div>
                 </div>
 
-                <!-- Double-Tap Skip Zones -->
-                <div class="double-tap-zone dt-left" id="dt-left">
-                    <div class="minimal-skip-pill" id="skip-left"><i class="fas fa-backward text-[10px]"></i> 10s</div>
-                </div>
-                <div class="double-tap-zone dt-right" id="dt-right">
-                    <div class="minimal-skip-pill" id="skip-right">10s <i class="fas fa-forward text-[10px]"></i></div>
-                </div>
+                <!-- YouTube-style Double-Tap Skip Overlays -->
+                <div class="dt-zone dt-left" id="dt-left"><div class="dt-ripple"></div><div class="dt-info"><div class="dt-arrows"><i class="fas fa-caret-left"></i><i class="fas fa-caret-left"></i><i class="fas fa-caret-left"></i></div><span>10s</span></div></div>
+                <div class="dt-zone dt-right" id="dt-right"><div class="dt-ripple"></div><div class="dt-info"><div class="dt-arrows"><i class="fas fa-caret-right"></i><i class="fas fa-caret-right"></i><i class="fas fa-caret-right"></i></div><span>10s</span></div></div>
+
+                <!-- Mobile Screen Lock: floating Unlock -->
+                <button id="unlock-btn" class="hidden w-10 h-10 rounded-full bg-black/60 backdrop-blur border border-white/20 text-gray-100 items-center justify-center text-sm active:scale-90 transition" title="Unlock"><i class="fas fa-lock-open"></i></button>
 
                 <!-- HUD Controls Layer -->
                 <div class="hud" id="hud">
                     <!-- Top HUD Bar -->
-                    <div class="p-2.5 sm:p-3 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent">
+                    <div class="hud-top p-2.5 sm:p-3 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent">
                         <span class="text-[10px] sm:text-xs font-medium text-gray-200 truncate max-w-[60%] drop-shadow">{{file_name}}</span>
                         <div class="flex items-center gap-1.5 ml-auto">
                             <button class="w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/15 flex items-center justify-center text-[11px] sm:text-xs transition active:scale-90 text-gray-200" onclick="openPopup('aspect-popup')" title="Aspect Ratio">
@@ -738,12 +710,13 @@
                                 <button class="px-1.5 py-0.5 rounded bg-white/10 hover:bg-white/20 text-[10px] sm:text-xs font-semibold active:scale-95" onclick="openPopup('speed-popup')">
                                     <span id="speed-display">1x</span>
                                 </button>
-                                <button class="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" onclick="openAudioPopup()" title="Audio Tracks">
+                                <button class="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" onclick="openPopup('audio-alert-popup')" title="Audio Tracks">
                                     <i class="fas fa-music"></i>
                                 </button>
-                                <button class="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" onclick="openSubPopup()" title="Subtitles">
+                                <button class="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" onclick="openPopup('sub-alert-popup')" title="Subtitles">
                                     <i class="fas fa-closed-captioning"></i>
                                 </button>
+                                <button class="hidden w-6 h-6 sm:w-7 sm:h-7 items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" id="btn-lock" title="Lock Screen"><i class="fas fa-lock"></i></button>
                                 <!-- Persistent Orientation Toggle -->
                                 <button class="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" id="btn-rotate-persistent" onclick="youtubeStyleLandscapeToggle(event)" title="Toggle Orientation">
                                     <i class="fas fa-rotate" id="rotate-screen-icon"></i>
@@ -1021,28 +994,47 @@
             </div>
         </div>
 
-        <!-- 6. Audio Tracks Popup -->
-        <div id="audio-popup" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
-            <div class="glass-popup-card p-5">
+
+        <!-- 6. No-Audio Watchdog Popup (red neon) -->
+        <div id="audio-fail-popup" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
+            <div class="glass-popup-card p-5 sm:p-6 !border-red-500/40 !shadow-[0_0_25px_rgba(239,68,68,0.3)]">
                 <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-bold text-sm font-['Outfit'] text-white">Audio Tracks</h3>
-                    <button onclick="closeAllPopups()" class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition hover:bg-red-500/20 hover:text-red-400"><i class="fas fa-times text-xs"></i></button>
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-ping shadow-[0_0_12px_#ef4444]"></span>
+                        <h3 class="font-extrabold text-sm sm:text-base font-['Outfit'] text-white tracking-wide">Audio Format Unsupported</h3>
+                    </div>
+                    <button onclick="closeAllPopups()" class="w-7 h-7 rounded-full bg-white/10 hover:bg-red-500/30 text-gray-300 hover:text-red-400 flex items-center justify-center transition"><i class="fas fa-times text-xs"></i></button>
                 </div>
-                <div class="flex flex-col gap-2" id="audio-track-list"></div>
-                <p class="text-[10px] text-gray-400 mt-3 text-center leading-normal">
-                    Audio plays in smooth high-speed sync in browser. If proprietary Dolby AC3/DDP 5.1 is required, launch directly into <span class="text-sapphire font-semibold">VLC</span> or <span class="text-[#0088ff] font-semibold">PotPlayer</span>.
-                </p>
+                <div class="bg-black/40 border border-red-500/20 rounded-2xl p-4 text-xs text-gray-300 leading-relaxed mb-4 text-center">
+                    <div class="w-12 h-12 rounded-full bg-red-500/15 border border-red-500/50 flex items-center justify-center mx-auto mb-3 shadow-[0_0_20px_rgba(239,68,68,0.45)]">
+                        <i class="fas fa-volume-xmark text-xl text-red-500 drop-shadow-[0_0_8px_#ef4444]"></i>
+                    </div>
+                    <p>Advanced Dolby Audio (AC3 / EAC3 / DDP) detected. Browsers cannot decode this audio track. Please launch in VLC for full crystal-clear sound.</p>
+                </div>
+                <div class="flex gap-2.5">
+                    <button onclick="closeAllPopups()" class="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-200 font-bold text-xs transition active:scale-95">Close</button>
+                    <button onclick="playInVlc()" class="flex-[1.5] py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white font-extrabold text-xs tracking-wide shadow-[0_0_20px_rgba(239,68,68,0.45)] transition active:scale-95 flex items-center justify-center gap-2"><i class="fas fa-external-link-alt"></i><span>Play in VLC</span></button>
+                </div>
             </div>
         </div>
 
-        <!-- 7. Subtitles Popup -->
-        <div id="sub-popup" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
-            <div class="glass-popup-card p-5">
+        <!-- 7. Keyboard Shortcuts Popup (PC) -->
+        <div id="shortcuts-popup" class="glass-popup-backdrop" onclick="closePopupOnBackdrop(event, this)">
+            <div class="glass-popup-card p-5 sm:p-6 border-sapphire/30">
                 <div class="flex justify-between items-center mb-3">
-                    <h3 class="font-bold text-sm font-['Outfit'] text-white">Subtitles & Captions</h3>
-                    <button onclick="closeAllPopups()" class="w-7 h-7 rounded-full bg-white/10 flex items-center justify-center text-gray-400 hover:text-white transition hover:bg-red-500/20 hover:text-red-400"><i class="fas fa-times text-xs"></i></button>
+                    <div class="flex items-center gap-2.5">
+                        <span class="w-2.5 h-2.5 rounded-full bg-sapphire animate-ping shadow-[0_0_12px_#00d2ff]"></span>
+                        <h3 class="font-extrabold text-sm sm:text-base font-['Outfit'] text-white tracking-wide">Keyboard Shortcuts</h3>
+                    </div>
+                    <button onclick="closeAllPopups()" class="w-7 h-7 rounded-full bg-white/10 hover:bg-red-500/20 text-gray-300 hover:text-red-400 flex items-center justify-center transition"><i class="fas fa-times text-xs"></i></button>
                 </div>
-                <div class="flex flex-col gap-2 max-h-48 overflow-y-auto pr-1" id="sub-track-list"></div>
+                <div class="bg-black/40 border border-white/10 rounded-2xl p-4 text-xs text-gray-300 space-y-2.5">
+                    <div class="flex justify-between items-center"><span>Play / Pause</span><span class="font-mono text-sapphire font-bold">Space / K</span></div>
+                    <div class="flex justify-between items-center"><span>Fullscreen</span><span class="font-mono text-sapphire font-bold">F</span></div>
+                    <div class="flex justify-between items-center"><span>Mute</span><span class="font-mono text-sapphire font-bold">M</span></div>
+                    <div class="flex justify-between items-center"><span>Seek 10s</span><span class="font-mono text-sapphire font-bold">&larr; / &rarr;</span></div>
+                    <div class="flex justify-between items-center"><span>Volume</span><span class="font-mono text-sapphire font-bold">&uarr; / &darr;</span></div>
+                </div>
             </div>
         </div>
 
@@ -1116,7 +1108,6 @@
         video.preload = "auto"; // Ensuring auto preload is active
         const playerContainer = document.getElementById('player-container');
         const globalModalLayer = document.getElementById('global-modal-layer');
-        const customSubOverlay = document.getElementById('custom-sub-overlay');
         const hud = document.getElementById('hud');
         let hudTimeout;
         let isDragging = false;
@@ -1135,34 +1126,27 @@
         const errorScreen = document.getElementById('error-screen');
         const videoLoader = document.getElementById('video-loader');
 
-        // Track metadata comes ONLY from the server (ffprobe). Nothing is guessed from the filename.
-        let detectedAudioMeta = (Array.isArray(window.__SERVER_AUDIOS__) && window.__SERVER_AUDIOS__.length > 0)
-            ? window.__SERVER_AUDIOS__
-            : ['Default Audio'];
-
-        let detectedSubMeta = (Array.isArray(window.__SERVER_SUBS__) && window.__SERVER_SUBS__.length > 0)
-            ? window.__SERVER_SUBS__
-            : [];
-
-        // When the server supplied ffprobe data it is authoritative: HLS / native <video> track lists must not overwrite it
-        const SERVER_AUDIO_PROVIDED = Array.isArray(window.__SERVER_AUDIOS__) && window.__SERVER_AUDIOS__.length > 0;
-        const SERVER_SUBS_PROVIDED = Array.isArray(window.__SERVER_SUBS__) && window.__SERVER_SUBS__.length > 0;
-        let activeAudioIdx = 0;
-        let activeSubIdx = -1; 
-
-        // Safe, display-only label for a track entry (string or {title|name|label|language} object)
-        function trackLabel(t, fallback, stripEmbeddedTags) {
-            let s = '';
-            if (typeof t === 'string') s = t;
-            else if (t && typeof t === 'object') s = t.title || t.name || t.label || t.language || t.lang || '';
-            else if (t !== null && t !== undefined) s = String(t);
-            s = String(s);
-            if (stripEmbeddedTags) s = s.replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '');
-            s = s.trim();
-            return s || fallback;
-        }
+        let isDownloadViewActive = false;
+        let screenLocked = false;
+        let lastGoodTime = 0;
+        function safePlay() { return isDownloadViewActive ? Promise.resolve() : video.play(); }
+        video.addEventListener('play', () => { if (isDownloadViewActive) video.pause(); });
 
         // ================= PLAYBACK ERROR ENGINE (codec vs network) =================
+        const MAX_AUTO_RETRIES = 2;
+        let autoRetryCount = 0, autoRetryTimer = null, isRetrying = false;
+        function failPlayback(kind) {
+            if (autoRetryCount < MAX_AUTO_RETRIES) {
+                if (autoRetryTimer) return;
+                autoRetryCount++;
+                clearStallWatch(); clearTimeout(loadTimeoutTimer);
+                videoLoader.classList.remove('hidden');
+                showCenterControls(false);
+                autoRetryTimer = setTimeout(() => { autoRetryTimer = null; retryPlayback(true); }, 1200);
+                return;
+            }
+            showPlaybackError(kind);
+        }
         let usingHls = false;
         let pendingSeekPos = 0;
         let playbackErrorKind = null;
@@ -1192,7 +1176,7 @@
         function armLoadTimeout() {
             clearTimeout(loadTimeoutTimer);
             loadTimeoutTimer = setTimeout(() => {
-                if (FILE_URL && video.readyState < video.HAVE_METADATA) showPlaybackError('network');
+                if (FILE_URL && video.readyState < video.HAVE_METADATA) failPlayback('network');
             }, LOAD_TIMEOUT_MS);
         }
 
@@ -1200,7 +1184,7 @@
             if (stallErrorTimer) return;
             stallErrorTimer = setTimeout(() => {
                 stallErrorTimer = null;
-                if (!video.paused && !video.ended && video.readyState < video.HAVE_FUTURE_DATA) showPlaybackError('network');
+                if (!video.paused && !video.ended && video.readyState < video.HAVE_FUTURE_DATA) failPlayback('network');
             }, STALL_ERROR_MS);
         }
         function clearStallWatch() {
@@ -1232,7 +1216,7 @@
         video.addEventListener('playing', () => { clearStallWatch(); });
         video.addEventListener('canplay', () => { if (video.readyState >= video.HAVE_FUTURE_DATA) clearStallWatch(); });
         window.addEventListener('offline', () => {
-            if (FILE_URL && !video.ended && video.readyState < video.HAVE_FUTURE_DATA && video.currentSrc !== '') showPlaybackError('network');
+            if (FILE_URL && !video.ended && video.readyState < video.HAVE_FUTURE_DATA && video.currentSrc !== '') failPlayback('network');
         });
 
         // ---- Autoplay gate: never start playback behind the Welcome / Resume modals ----
@@ -1250,7 +1234,7 @@
                 return;
             }
             pendingAutoplay = false;
-            video.play().catch(e => {
+            safePlay().catch(e => {
                 console.warn("Autoplay blocked by browser policy. User tap required:", e);
                 showCenterControls(true);
             });
@@ -1289,8 +1273,8 @@
             if (isM3U8 && window.Hls && Hls.isSupported()) {
                 // Ultimate Jugad HLS Config for x265 smooth stream and Instant Play
                 const hls = new Hls({ 
-                    maxBufferLength: 120, 
-                    maxMaxBufferLength: 600, 
+                    maxBufferLength: isMobile ? 45 : 120, 
+                    maxMaxBufferLength: isMobile ? 45 : 600, 
                     maxBufferSize: 0, 
                     maxBufferHole: 0.5, 
                     highBufferWatchdogPeriod: 1,
@@ -1319,15 +1303,6 @@
                 });
 
                 hls.on(Hls.Events.MANIFEST_PARSED, function (event, data) {
-                    if (!SERVER_AUDIO_PROVIDED && hls.audioTracks && hls.audioTracks.length > 0) {
-                        detectedAudioMeta = hls.audioTracks.map((t, idx) => t.name || t.language || `Track ${idx + 1}`);
-                    }
-                    if (!SERVER_SUBS_PROVIDED && hls.subtitleTracks && hls.subtitleTracks.length > 0) {
-                        detectedSubMeta = hls.subtitleTracks.map((t, idx) => {
-                            let name = t.name || t.language || `Subtitle ${idx + 1}`;
-                            return name.replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '').trim();
-                        });
-                    }
                     tryAutoplay();
                 });
                 
@@ -1340,7 +1315,7 @@
                     if (!data.fatal) return;
                     if (data.details === 'bufferAddCodecError' || data.details === 'manifestIncompatibleCodecsError' || data.details === 'bufferIncompatibleCodecsError') {
                         hls.stopLoad();
-                        showPlaybackError('codec');
+                        failPlayback('codec');
                         return;
                     }
                     switch (data.type) {
@@ -1348,7 +1323,7 @@
                             hlsNetFailures++;
                             if (hlsNetFailures > 8) {
                                 hls.stopLoad();
-                                showPlaybackError('network');
+                                failPlayback('network');
                                 break;
                             }
                             // Ultimate 429 Telegram Bypass Exponential Backoff with Jitter
@@ -1370,7 +1345,7 @@
                             hlsLastRecoverAt = Date.now();
                             hlsMediaRecoveries++;
                             if (hlsMediaRecoveries > 2) {
-                                showPlaybackError('codec');
+                                failPlayback('codec');
                             } else {
                                 hls.recoverMediaError();
                             }
@@ -1378,7 +1353,7 @@
                         default:
                             hls.destroy();
                             window.hlsInstance = null;
-                            showPlaybackError(data.type === Hls.ErrorTypes.MUX_ERROR ? 'codec' : 'network');
+                            failPlayback(data.type === Hls.ErrorTypes.MUX_ERROR ? 'codec' : 'network');
                             break;
                     }
                 });
@@ -1398,38 +1373,34 @@
             else centerControls.classList.add('opacity-0', 'pointer-events-none');
         }
 
-        function retryPlayback() {
+        function retryPlayback(auto) {
             if (!FILE_URL) return;
-            const currentPos = video.currentTime || 0;
+            if (auto !== true) { autoRetryCount = 0; clearTimeout(autoRetryTimer); autoRetryTimer = null; }
+            const currentPos = video.currentTime || lastGoodTime || 0;
             hidePlaybackError();
             videoLoader.classList.remove('hidden');
-            pendingSeekPos = currentPos > 1 ? currentPos : 0;
+            showCenterControls(false);
+            isRetrying = true;                 // blocks the Resume modal on reload
+            pendingSeekPos = currentPos;
             armLoadTimeout();
             if (usingHls) {
-                // Rebuild a fresh HLS pipeline (the old one may be destroyed or stopped)
                 if (window.hlsInstance) { try { window.hlsInstance.destroy(); } catch (e) {} window.hlsInstance = null; }
                 initPlayer();
                 return;
             }
             video.src = FILE_URL;
             video.load();
-            video.play().catch(() => {});
+            safePlay().catch(() => {});
         }
 
-        let errorRetryCount = 0;
         video.addEventListener('error', async () => {
             if (!FILE_URL) return;
             const mediaErr = video.error;
             if (mediaErr && mediaErr.code === 1) return; // MEDIA_ERR_ABORTED (we aborted it ourselves)
-            if (errorRetryCount < 1 && video.currentTime > 0) {
-                errorRetryCount++;
-                setTimeout(retryPlayback, 800);
-                return;
-            }
+            if (autoRetryCount < MAX_AUTO_RETRIES) { failPlayback('network'); return; }
             videoLoader.classList.add('hidden');
             showCenterControls(false);
-            const kind = await classifyMediaError(mediaErr);
-            showPlaybackError(kind);
+            showPlaybackError(await classifyMediaError(mediaErr));
         });
 
         video.addEventListener('loadstart', () => { if (FILE_URL) videoLoader.classList.remove('hidden'); });
@@ -1444,7 +1415,7 @@
                 if (isModalGateActive()) return;
                 if (video.networkState === video.NETWORK_LOADING || video.readyState < video.HAVE_FUTURE_DATA) {
                     if (window.hlsInstance) window.hlsInstance.recoverMediaError();
-                    video.play().catch(() => {});
+                    safePlay().catch(() => {});
                 }
             }, 400);
         }
@@ -1457,7 +1428,11 @@
             videoLoader.classList.remove('hidden'); 
             // Instant load on skip for smooth no-buffering jugad
             if (window.hlsInstance) {
-                window.hlsInstance.startLoad(video.currentTime);
+                let buffered = false;
+                for (let i = 0; i < video.buffered.length; i++) {
+                    if (video.currentTime >= video.buffered.start(i) && video.currentTime <= video.buffered.end(i) - 0.5) { buffered = true; break; }
+                }
+                if (!buffered) window.hlsInstance.startLoad(video.currentTime);
             }
         });
         
@@ -1469,7 +1444,7 @@
         });
         video.addEventListener('playing', () => { 
             clearTimeout(stallTimer);
-            errorRetryCount = 0; 
+            autoRetryCount = 0; isRetrying = false;
             videoLoader.classList.add('hidden'); 
             errorScreen.classList.add('hidden'); 
             showCenterControls(true); 
@@ -1501,15 +1476,14 @@
         }
 
         function showHudAndCursor() {
+            if (screenLocked) return;
             hud.classList.remove('hidden-hud');
             playerContainer.classList.remove('hide-cursor');
-            customSubOverlay.style.bottom = '15%';
             clearTimeout(hudTimeout);
             if (!video.paused || pausedSeekAutoHide) {
                 hudTimeout = setTimeout(() => {
                     hud.classList.add('hidden-hud');
                     playerContainer.classList.add('hide-cursor');
-                    customSubOverlay.style.bottom = '7%';
                 }, 3000);
             }
         }
@@ -1519,8 +1493,9 @@
                 showToast("Stream URL not active in local preview");
                 return;
             }
+            if (isDownloadViewActive || screenLocked) return;
             if (video.paused) {
-                video.play().catch(() => {});
+                safePlay().catch(() => {});
             } else {
                 video.pause();
             }
@@ -1537,9 +1512,8 @@
             playIcon.className = 'fas fa-play ml-0.5';
             videoLoader.classList.add('hidden');
             showCenterControls(true);
-            hud.classList.remove('hidden-hud');
+            if (!screenLocked) hud.classList.remove('hidden-hud');
             playerContainer.classList.remove('hide-cursor');
-            customSubOverlay.style.bottom = '15%';
             clearTimeout(hudTimeout);
         });
 
@@ -1548,20 +1522,8 @@
         if (!isMobile) {
             playerContainer.addEventListener('mousemove', showHudAndCursor);
             playerContainer.addEventListener('click', (e) => {
-                if (e.target.closest('button') || e.target.closest('input') || e.target.closest('#timeline-container') || e.target.closest('#error-screen') || e.target.closest('.double-tap-zone')) return;
+                if (e.target.closest('button') || e.target.closest('input') || e.target.closest('#timeline-container') || e.target.closest('#error-screen')) return;
                 togglePlay();
-            });
-        } else {
-            let lastScreenTap = 0;
-            playerContainer.addEventListener('touchend', (e) => {
-                if (e.target.closest('button') || e.target.closest('input') || e.target.closest('#timeline-container') || e.target.closest('#error-screen') || e.target.closest('.double-tap-zone')) return;
-                const now = Date.now();
-                if (now - lastScreenTap < 300) return;
-                if (hud.classList.contains('hidden-hud')) {
-                    showHudAndCursor();
-                } else {
-                    togglePlay();
-                }
             });
         }
 
@@ -1596,11 +1558,15 @@
             if (hud.classList.contains('hidden-hud')) showHudAndCursor(); else togglePlay();
         }
 
+        let skipTarget = null;
         function doubleTapSkip(side) {
-            seek(side === 'left' ? -10 : 10);
+            if (isNaN(video.duration)) return;
+            const base = (video.seeking && skipTarget !== null) ? skipTarget : video.currentTime;
+            skipTarget = Math.max(0, Math.min(video.duration, base + (side === 'left' ? -10 : 10)));
+            video.currentTime = skipTarget;   // no pause / no throttle: playback keeps running
             if (navigator.vibrate) navigator.vibrate(40);
-            const pill = document.getElementById(side === 'left' ? 'skip-left' : 'skip-right');
-            pill.classList.remove('skip-animate'); void pill.offsetWidth; pill.classList.add('skip-animate');
+            const z = document.getElementById(side === 'left' ? 'dt-left' : 'dt-right');
+            z.classList.remove('dt-show'); void z.offsetWidth; z.classList.add('dt-show');
             lastSkipTime = Date.now();
         }
 
@@ -1640,35 +1606,28 @@
             }, TAP_DEBOUNCE_MS);
         }
 
-        document.getElementById('dt-left').addEventListener('touchend', (e) => handleSkipZoneTap('left', e));
-        document.getElementById('dt-right').addEventListener('touchend', (e) => handleSkipZoneTap('right', e));
+        if (isMobile) {
+            playerContainer.addEventListener('touchend', (e) => {
+                if (screenLocked) return;
+                if (e.target.closest('button, input, #timeline-container, #error-screen, .glass-popup-backdrop')) return;
+                const t = e.changedTouches[0], r = playerContainer.getBoundingClientRect();
+                const rotated = playerContainer.classList.contains('css-landscape');
+                const left = rotated ? (t.clientY - r.top) < r.height / 2 : (t.clientX - r.left) < r.width / 2;
+                handleSkipZoneTap(left ? 'left' : 'right', e);
+            });
+        }
 
         video.addEventListener('loadedmetadata', () => {
             timeTotal.textContent = formatTime(video.duration);
             videoLoader.classList.add('hidden');
             showCenterControls(true);
-            bindSubtitleCueRenderer();
             
-            if (!SERVER_SUBS_PROVIDED && video.textTracks && video.textTracks.length > 0) {
-                let nativeSubs = [];
-                for (let i = 0; i < video.textTracks.length; i++) {
-                    const track = video.textTracks[i];
-                    if (track.kind === 'subtitles' || track.kind === 'captions') {
-                        let name = track.label || track.language || `Subtitle ${nativeSubs.length + 1}`;
-                        name = name.replace(/\[Embedded Track\]|\(Embedded\)|\[Embedded\]|\[ESub\]/gi, '').trim();
-                        nativeSubs.push(name);
-                    }
-                }
-                if (nativeSubs.length > 0) {
-                    detectedSubMeta = nativeSubs;
-                }
-            }
-
             clearTimeout(loadTimeoutTimer);
-            if (pendingSeekPos > 0) {
+            if (isRetrying || pendingSeekPos > 0) {
                 const resumeAt = pendingSeekPos;
                 pendingSeekPos = 0;
-                try { video.currentTime = resumeAt; } catch (e) {}
+                isRetrying = false;
+                if (resumeAt > 0) { try { video.currentTime = resumeAt; } catch (e) {} }
                 return; // retry path: continue silently, no resume prompt
             }
 
@@ -1685,6 +1644,7 @@
         });
 
         video.addEventListener('timeupdate', () => {
+            if (video.currentTime > 0) lastGoodTime = video.currentTime;
             if (!isDragging && video.duration) {
                 const pct = (video.currentTime / video.duration) * 100;
                 progressFilled.style.width = `${pct}%`;
@@ -1753,14 +1713,14 @@
         });
 
         window.addEventListener('keydown', (e) => {
-            if (document.querySelector('.glass-popup-backdrop.active')) return;
+            if (document.querySelector('.glass-popup-backdrop.active') || isDownloadViewActive || screenLocked) return;
             switch(e.code) {
                 case 'Space': case 'KeyK':
                     e.preventDefault(); togglePlay(); break;
                 case 'ArrowLeft':
                     e.preventDefault(); showHudAndCursor();
                     if (video.duration) {
-                        video.currentTime = Math.max(0, video.currentTime - 5);
+                        video.currentTime = Math.max(0, video.currentTime - 10);
                         const pct = (video.currentTime / video.duration) * 100;
                         progressFilled.style.width = `${pct}%`; progressThumb.style.left = `${pct}%`;
                         timeCurrent.textContent = formatTime(video.currentTime);
@@ -1770,7 +1730,7 @@
                 case 'ArrowRight':
                     e.preventDefault(); showHudAndCursor();
                     if (video.duration) {
-                        video.currentTime = Math.min(video.duration, video.currentTime + 5);
+                        video.currentTime = Math.min(video.duration, video.currentTime + 10);
                         const pct = (video.currentTime / video.duration) * 100;
                         progressFilled.style.width = `${pct}%`; progressThumb.style.left = `${pct}%`;
                         timeCurrent.textContent = formatTime(video.currentTime);
@@ -1786,6 +1746,8 @@
                     volSlider.value = video.volume;
                     if (video.volume === 0) volIcon.className = 'fas fa-volume-mute text-sapphire';
                     showToast(`Volume: ${Math.round(video.volume * 100)}%`); break;
+                case 'KeyM':
+                    e.preventDefault(); btnMute.click(); break;
                 case 'KeyF':
                     e.preventDefault(); toggleFullscreen(); break;
             }
@@ -1871,11 +1833,11 @@
             else if (document.pictureInPictureEnabled) video.requestPictureInPicture();
         });
 
-        function openPopup(id) {
+        function openPopup(id, noPause) {
             const hasOpen = document.querySelector('.glass-popup-backdrop.active');
             if (!hasOpen) {
                 // Only the FIRST popup decides whether playback was running; switching popups must keep that state
-                wasPlayingBeforePopup = (!video.paused && !video.ended);
+                wasPlayingBeforePopup = !noPause && (!video.paused && !video.ended);
                 if (wasPlayingBeforePopup) video.pause();
             }
             
@@ -1894,16 +1856,17 @@
             const activePopups = document.querySelectorAll('.glass-popup-backdrop.active');
             if (activePopups.length > 0) {
                 activePopups.forEach(p => {
+                    if (p.id === 'audio-fail-popup') audioFailDismissed = true;
                     p.classList.remove('active');
                     
                     setTimeout(() => {
                         if (wasPlayingBeforePopup && !document.querySelector('.glass-popup-backdrop.active')) {
-                            video.play().catch(() => {});
+                            safePlay().catch(() => {});
                             wasPlayingBeforePopup = false;
                             pendingAutoplay = false;
                         } else if (pendingAutoplay && !document.querySelector('.glass-popup-backdrop.active')) {
                             pendingAutoplay = false;
-                            video.play().catch(() => { showCenterControls(true); });
+                            safePlay().catch(() => { showCenterControls(true); });
                         }
                     }, 220);
                 });
@@ -1982,115 +1945,6 @@
             showToast(`Aspect Ratio: ${mode}`);
         }
 
-        // Decode WebVTT entities (&amp; &lt; ...) without ever parsing markup
-        function decodeCueText(s) {
-            const ta = document.createElement('textarea');
-            ta.innerHTML = s;
-            return ta.value;
-        }
-
-        function bindSubtitleCueRenderer() {
-            if (!video.textTracks) return;
-            for (let i = 0; i < video.textTracks.length; i++) {
-                const track = video.textTracks[i];
-                track.oncuechange = () => {
-                    if (track.mode === 'showing' && track.activeCues && track.activeCues.length > 0) {
-                        const lines = [];
-                        Array.from(track.activeCues).forEach(c => {
-                            decodeCueText(String(c.text || '').replace(/<[^>]*>/g, '')).split(/\r?\n/).forEach(l => lines.push(l));
-                        });
-                        customSubOverlay.textContent = '';
-                        lines.forEach((l, idx) => {
-                            if (idx > 0) customSubOverlay.appendChild(document.createElement('br'));
-                            customSubOverlay.appendChild(document.createTextNode(l));
-                        });
-                    } else if (activeSubIdx === -1) {
-                        customSubOverlay.textContent = '';
-                    }
-                };
-            }
-        }
-
-        function openSubPopup() {
-            const subList = document.getElementById('sub-track-list');
-            subList.innerHTML = '';
-
-            if (detectedSubMeta.length === 0) {
-                const noSub = document.createElement('div');
-                noSub.className = 'py-3 px-4 text-center text-gray-400 text-xs font-semibold';
-                noSub.textContent = 'No subtitles available for this file';
-                subList.appendChild(noSub);
-                openPopup('sub-popup');
-                return;
-            }
-
-            const offBtn = document.createElement('button');
-            const isOff = (activeSubIdx === -1);
-            offBtn.className = isOff
-                ? 'w-full py-2.5 px-4 rounded-xl bg-sapphire/20 border border-sapphire/50 text-sapphire text-xs font-bold text-left flex justify-between items-center transition'
-                : 'w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold text-left flex justify-between items-center transition';
-            offBtn.innerHTML = `<span>Off (Default)</span> ${isOff ? '<i class="fas fa-check text-xs"></i>' : ''}`;
-            offBtn.onclick = () => {
-                activeSubIdx = -1;
-                customSubOverlay.innerHTML = '';
-                if (video.textTracks) {
-                    for (let j = 0; j < video.textTracks.length; j++) video.textTracks[j].mode = 'disabled';
-                }
-                showToast("Subtitles Off");
-                closeAllPopups();
-            };
-            subList.appendChild(offBtn);
-
-            for (let i = 0; i < detectedSubMeta.length; i++) {
-                const btn = document.createElement('button');
-                btn.className = 'w-full py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold text-left flex justify-between items-center transition';
-                const cleanName = trackLabel(detectedSubMeta[i], `Subtitle ${i + 1}`, true);
-                const nameSpan = document.createElement('span');
-                nameSpan.textContent = cleanName;
-                btn.appendChild(nameSpan);
-                btn.onclick = () => {
-                    openPopup('sub-alert-popup'); 
-                };
-                subList.appendChild(btn);
-            }
-            openPopup('sub-popup');
-        }
-
-        function openAudioPopup() {
-            const list = document.getElementById('audio-track-list');
-            list.innerHTML = '';
-
-            for (let i = 0; i < detectedAudioMeta.length; i++) {
-                const isSelected = (activeAudioIdx === i);
-                const label = trackLabel(detectedAudioMeta[i], `Audio Track ${i + 1}`, false);
-
-                const btn = document.createElement('button');
-                btn.className = isSelected
-                    ? 'py-2.5 px-4 rounded-xl bg-sapphire/20 border border-sapphire/50 text-sapphire text-xs font-bold text-left flex justify-between items-center transition'
-                    : 'py-2.5 px-4 rounded-xl bg-white/5 hover:bg-white/10 text-gray-200 text-xs font-semibold text-left flex justify-between items-center transition';
-                const labelSpan = document.createElement('span');
-                labelSpan.textContent = label;
-                btn.appendChild(labelSpan);
-                if (isSelected) {
-                    const chk = document.createElement('i');
-                    chk.className = 'fas fa-check text-xs';
-                    btn.appendChild(chk);
-                }
-                
-                btn.onclick = () => {
-                    if(i !== 0) {
-                        openPopup('audio-alert-popup'); 
-                    } else {
-                        activeAudioIdx = 0;
-                        showToast(`Audio: ${label}`);
-                        closeAllPopups();
-                    }
-                };
-                list.appendChild(btn);
-            }
-            openPopup('audio-popup');
-        }
-
         function copyDownloadLink() {
             if (!FILE_URL) return;
             navigator.clipboard.writeText(RAW_FILE_URL).then(() => {
@@ -2101,8 +1955,11 @@
 
         function directBrowserDownload() {
             if (!FILE_URL) return;
+            isDownloadViewActive = true;
+            wasPlayingBeforePopup = false; pendingAutoplay = false;
             closeAllPopups();
             video.pause();
+            if (window.hlsInstance) window.hlsInstance.stopLoad();
             
             document.getElementById('player-view').classList.add('hidden');
             const dlView = document.getElementById('download-view');
@@ -2128,6 +1985,8 @@
         }
 
         function backToPlayerView() {
+            isDownloadViewActive = false;   // stays paused until the user presses play
+            if (window.hlsInstance) window.hlsInstance.startLoad(video.currentTime);
             document.getElementById('download-view').classList.add('hidden');
             document.getElementById('download-view').classList.remove('flex');
             document.getElementById('player-view').classList.remove('hidden');
@@ -2214,7 +2073,7 @@
 
         function downloadM3U(playerName, streamUrl) {
             const title = (FILE_NAME || 'Stream').replace(/[\r\n]+/g, ' ');
-            const m3uContent = `#EXTM3U\n#EXTINF:-1,${title}\n#EXTVLCOPT:network-caching=1500\n#EXTVLCOPT:http-reconnect=true\n${streamUrl}\n`;
+            const m3uContent = `#EXTM3U\n#EXTINF:-1,${title}\n#EXTVLCOPT:network-caching=800\n#EXTVLCOPT:http-reconnect=true\n${streamUrl}\n`;
             const blob = new Blob([m3uContent], { type: 'audio/x-mpegurl' });
             const objUrl = URL.createObjectURL(blob);
             const safeName = `${playerName} - ${FILE_NAME}.m3u`.replace(/[\\/:*?"<>|\r\n]+/g, '_');
@@ -2325,7 +2184,68 @@
             }
         };
 
+// ================= 30s NO-AUDIO WATCHDOG =================
+        let audioFailDismissed = false, playedSecs = 0;
+        function playInVlc() { wasPlayingBeforePopup = false; pendingAutoplay = false; closeAllPopups(); launchApp('vlc'); }
+        setInterval(() => {
+            const playing = !video.paused && !video.ended && !video.seeking && video.readyState >= 3 && !isDownloadViewActive;
+            playedSecs = playing ? playedSecs + 1 : 0;
+            if (playedSecs < 30 || audioFailDismissed || video.muted || video.volume === 0) return;
+            if (document.querySelector('.glass-popup-backdrop.active')) return;
+            const noAudio = (typeof video.webkitAudioDecodedByteCount === 'number' && video.webkitAudioDecodedByteCount === 0)
+                || video.mozHasAudio === false;
+            if (noAudio) openPopup('audio-fail-popup');
+        }, 1000);
+
+        // ================= PC SHORTCUTS BUTTON =================
+        document.getElementById('btn-shortcuts').addEventListener('click', () => openPopup('shortcuts-popup', true));
+
+        // ================= MOBILE SCREEN LOCK =================
+        const btnLock = document.getElementById('btn-lock'), unlockBtn = document.getElementById('unlock-btn');
+        if (isMobile) btnLock.classList.remove('hidden');
+        btnLock.addEventListener('click', (e) => {
+            e.stopPropagation();
+            screenLocked = true;
+            clearTimeout(hudTimeout);
+            hud.classList.add('hidden-hud');
+            unlockBtn.classList.remove('hidden'); unlockBtn.classList.add('flex');
+            showToast('Screen Locked');
+        });
+        unlockBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            screenLocked = false;
+            unlockBtn.classList.add('hidden'); unlockBtn.classList.remove('flex');
+            showHudAndCursor();
+            showToast('Screen Unlocked');
+        });
+
+        // ================= BACK BUTTON CLOSES POPUPS =================
+        let popupHistoryPushed = false, popupHistoryTimer = null;
+        function syncPopupHistory() {
+            const open = !!document.querySelector('.glass-popup-backdrop.active');
+            clearTimeout(popupHistoryTimer);
+            if (open && !popupHistoryPushed) {
+                history.pushState({ popup: 1 }, '');
+                popupHistoryPushed = true;
+            } else if (!open && popupHistoryPushed) {
+                popupHistoryTimer = setTimeout(() => {   // debounce: popup swaps briefly leave none active
+                    if (!document.querySelector('.glass-popup-backdrop.active') && popupHistoryPushed) {
+                        popupHistoryPushed = false;
+                        history.back();
+                    }
+                }, 350);
+            }
+        }
+        new MutationObserver(syncPopupHistory).observe(globalModalLayer, { subtree: true, attributes: true, attributeFilter: ['class'] });
+        window.addEventListener('popstate', () => {
+            if (!popupHistoryPushed) return;
+            popupHistoryPushed = false;
+            const w = document.getElementById('welcome-popup');
+            if (w && w.classList.contains('active')) dismissWelcome(); else closeAllPopups();
+        });
+
         initPlayer();
+        syncPopupHistory();
     </script>
 </body>
 </html>
