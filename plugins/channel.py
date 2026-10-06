@@ -388,6 +388,8 @@ def is_good_title_match(query: str, found_title: str) -> bool:
         return False
     if q == f:
         return True
+    if len(q) == 1:        # 'Love' must NEVER match 'The Love Hypothesis' / 'Love Aaj Kal'
+        return False
     if not all(w in f for w in q):
         return False
     # sequel digits must agree: "Sardar" must NOT match "Sardar 2"
@@ -679,7 +681,8 @@ async def identify_movie_with_gemini(filename: str, caption: str = "", duration_
         "4. ott: the Indian streaming platform(s) that stream or digitally release it. "
         "If a platform tag is present in the filename (AMZN/Prime = Amazon Prime Video, NF = Netflix, JHS/JioHotstar/DSNP/HS = "
         "JioHotstar or Disney+ Hotstar, ZEE5, SonyLIV/SLIV, Aha, SunNXT, Hoichoi, MX Player, Lionsgate Play, Apple TV+) "
-        "treat it as strong evidence. List ALL available Indian platforms in the JSON array (e.g. [\"Netflix\", \"Amazon Prime Video\", \"JioHotstar\"]). Do not stop at one. "
+        "treat it as strong evidence. Major Bollywood and Hollywood titles usually stream on SEVERAL Indian services at the same time "
+        "(e.g. Netflix, Amazon Prime Video, SonyLIV, JioHotstar, Zee5) - return ALL of them. List ALL available Indian platforms in the JSON array (e.g. [\"Netflix\", \"Amazon Prime Video\", \"JioHotstar\"]). Do not stop at one. "
         "If the digital-release source is YES, you MUST give your best answer from "
         "the film's known/announced digital rights, studio/producer deals and typical platform for its language and cast; "
         "do not return an empty list just because you are unsure. "
@@ -785,6 +788,7 @@ async def resolve_identity(filename_clean, caption, duration_mins, title_local, 
         "title": title,
         "year": year_local or ai_year,     # the year written on the file wins over the AI's guess
         "is_series": is_series_final,
+        "season": local_season,
         "ott": ai_ott,
         "ai_ok": bool(ai) or not GEMINI_API_KEY,
     }
@@ -940,9 +944,22 @@ async def fetch_online_ott(imdb_details: dict, tmdb_details: dict, filename: str
 
     # 2) TMDb watch providers (India: flatrate + ads + rent + buy)
     tmdb_id = tmdb_details.get("id") if isinstance(tmdb_details, dict) else None
-    t_found = []
+    t_found, hint = [], None
+    if not tmdb_id and TMDB_API_KEY:                       # no TMDb match by title -> find it through the IMDb id
+        iid = (imdb_details or {}).get("imdb_id") if isinstance(imdb_details, dict) else None
+        if iid and str(iid).startswith("tt"):
+            try:
+                async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
+                    async with session.get(f"https://api.themoviedb.org/3/find/{iid}?api_key={TMDB_API_KEY}&external_source=imdb_id") as resp:
+                        data = await resp.json() if resp.status == 200 else {}
+                for key, mt in (("tv_results", "tv"), ("movie_results", "movie")):
+                    if data.get(key):
+                        tmdb_id, hint = data[key][0].get("id"), mt
+                        break
+            except Exception as e:
+                logger.info(f"[OTT] TMDb find-by-IMDb error: {e}")
     if tmdb_id and TMDB_API_KEY:
-        media_type = "tv" if (tmdb_details.get("first_air_date") or tmdb_details.get("name")) else "movie"
+        media_type = hint or ("tv" if (tmdb_details.get("first_air_date") or tmdb_details.get("name")) else "movie")
         try:
             url = f"https://api.themoviedb.org/3/{media_type}/{tmdb_id}/watch/providers?api_key={TMDB_API_KEY}"
             async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=5)) as session:
@@ -1057,16 +1074,26 @@ def _kwargs_for(func, is_series: bool) -> dict:
     return {}
 
 
-def _queries(title: str, year: Optional[str], is_series: bool) -> list:
+def _series_variants(title: str, season, is_series: bool) -> list:
+    """Series: 'Love Season 1', 'Love S01', 'Love' (bare last). Movies: just the title."""
     t = re.sub(r"\s+Season\s*\d+", "", title, flags=re.IGNORECASE).strip()
-    qs = [f"{t} {year}".strip() if (year and not is_series) else t, t]
-    return list(dict.fromkeys(q for q in qs if q))
+    if not is_series:
+        return [t]
+    n = int(season) if season else 1
+    return list(dict.fromkeys([f"{t} Season {n}", f"{t} S{n:02d}", t]))
 
 
-async def fetch_imdb_safely(title: str, is_series: bool, year: Optional[str] = None) -> dict:
+def _queries(title: str, year: Optional[str], is_series: bool, season=None) -> list:
+    t = re.sub(r"\s+Season\s*\d+", "", title, flags=re.IGNORECASE).strip()
+    if is_series:
+        return _series_variants(t, season, True)
+    return list(dict.fromkeys(q for q in [f"{t} {year}".strip() if year else t, t] if q))
+
+
+async def fetch_imdb_safely(title: str, is_series: bool, year: Optional[str] = None, season=None) -> dict:
     kwargs = _kwargs_for(get_movie_details, is_series)
     clean_t = re.sub(r"\s+Season\s*\d+", "", title, flags=re.IGNORECASE).strip()
-    for q in _queries(title, year, is_series):
+    for q in _queries(title, year, is_series, season):
         try:
             res = await get_movie_details(q, **kwargs)
             if accept_result(res, clean_t, year, is_series):
@@ -1076,12 +1103,12 @@ async def fetch_imdb_safely(title: str, is_series: bool, year: Optional[str] = N
     return {}
 
 
-async def fetch_tmdb_safely(title: str, is_series: bool, year: Optional[str] = None) -> dict:
+async def fetch_tmdb_safely(title: str, is_series: bool, year: Optional[str] = None, season=None) -> dict:
     if not TMDB_POSTER:
         return {}
     kwargs = _kwargs_for(get_movie_detailsx, is_series)
     clean_t = re.sub(r"\s+Season\s*\d+", "", title, flags=re.IGNORECASE).strip()
-    for q in _queries(title, year, is_series):
+    for q in _queries(title, year, is_series, season):
         try:
             res = await get_movie_detailsx(q, **kwargs)
             if accept_result(res, clean_t, year, is_series):
@@ -1119,6 +1146,7 @@ async def search_tmdb_backdrop_force(title: str, year: Optional[str] = None, is_
         if not api_key:
             return None
         clean_q = normalize(title or "")
+        base_q = re.sub(r"\s+(?:Season\s*\d+|S\d{1,2})\b.*$", "", clean_q, flags=re.IGNORECASE).strip() or clean_q   # validate against the bare title
         toks = clean_q.split()
         if year and len(toks) > 1 and toks[-1] == str(year):       # strip ONLY the release year ('Blade Runner 2049' stays intact)
             clean_q = " ".join(toks[:-1])
@@ -1137,8 +1165,8 @@ async def search_tmdb_backdrop_force(title: str, year: Optional[str] = None, is_
             if not item.get("backdrop_path"):
                 continue
             found = str(item.get("title") or item.get("name") or "")
-            if not (is_good_title_match(clean_q, found)
-                    or SequenceMatcher(None, canon_key(clean_q), canon_key(found)).ratio() >= 0.85):
+            if not (is_good_title_match(base_q, found)
+                    or (len(base_q.split()) > 1 and SequenceMatcher(None, canon_key(base_q), canon_key(found)).ratio() >= 0.85)):
                 continue                                              # a different film's backdrop is worse than none
             ry = _result_year(item)
             if year and not is_series and ry and not _years_compatible(year, ry):
@@ -1159,6 +1187,17 @@ async def get_hdhub_base_url() -> str:
         pass
     return DEFAULT_HDHUB_DOMAIN
 
+_POSTER_FILLER_RE = re.compile(r"\b(?:poster|posters|banner|backdrop|wallpaper|cover|thumbnail|image|hd|hindi|movie|film|full|download|web\s*series|series)\b", re.IGNORECASE)
+
+
+def _blogger_title_ok(query: str, post_title: str) -> bool:
+    """Blogger poster posts are often 'Pathaan (2023) Poster': ignore filler words, but keep the single-word guard
+    ('Love' must still NOT match 'The Love Hypothesis')."""
+    if is_good_title_match(query, post_title):
+        return True
+    return is_good_title_match(query, normalize(_POSTER_FILLER_RE.sub(" ", post_title or "")))
+
+
 async def get_blogger_poster_url(base_name: str, year: Optional[str] = None) -> Optional[str]:
     try:
         blog_url = "https://tmdbimdbhdhub4u.blogspot.com"
@@ -1178,7 +1217,7 @@ async def get_blogger_poster_url(base_name: str, year: Optional[str] = None) -> 
                     continue
                 for entry in ((data or {}).get("feed") or {}).get("entry") or []:
                     post_title = ((entry or {}).get("title") or {}).get("$t") or ""
-                    if is_good_title_match(clean_query, post_title):
+                    if _blogger_title_ok(clean_query, post_title):
                         content_html = ((entry.get("content") or {}).get("$t")) or ""
                         soup = BeautifulSoup(content_html, "html.parser")
                         img_tag = soup.find("img")
@@ -1251,6 +1290,8 @@ def _hdhub_match_score(query: str, title_text: str, href: str) -> Optional[int]:
     for text in (title_text, slug):
         f = _hdhub_tokens(_hdhub_clean_title(text))
         if not f or {w for w in f if w.isdigit()} != q_digits:
+            continue
+        if len(q) == 1 and len(f) != 1:      # single-word query: only a single-word result is the same title
             continue
         extras = len(f) - len(q)
         if extras > 4:
@@ -1795,6 +1836,7 @@ async def ensure_indexes():
         logger.warning(f"[DB] index creation skipped: {e}")
 
 
+SERIES_META_MAX_MINUTES = 80        # a metadata EPISODE runtime above this is a movie/other title -> ignored
 SERIES_EP_MAX_MINUTES = 180      # a single episode is never this long -> longer values are combined/batch files
 
 
@@ -1811,6 +1853,7 @@ async def collect_metadata(identity: dict, filename: str, caption: str, file_run
     Runtime  :  IMDb -> OMDb -> TMDb -> (movie: Telegram file | series: average of uploaded single episodes)
     """
     title, year, is_series = identity["title"], identity.get("year"), identity["is_series"]
+    season = identity.get("season") or (1 if is_series else None)
     STATS["metadata_lookups"] += 1
     logger.info(f"[METADATA] Looking up '{title}' ({year or 'year unknown'}) as a {'web series' if is_series else 'movie'} "
                 f"- order: IMDb scraper -> OMDb -> HDHub4u -> TMDb")
@@ -1833,8 +1876,8 @@ async def collect_metadata(identity: dict, filename: str, caption: str, file_run
 
     # IMDb scraper + TMDb are fetched together (TMDb is also needed for poster / OTT / runtime)
     imdb_res, tmdb_res = await asyncio.gather(
-        _cached("imdb", (title, year, is_series), lambda: fetch_imdb_safely(title, is_series, year)),
-        _cached("tmdb", (title, year, is_series), lambda: fetch_tmdb_safely(title, is_series, year)), return_exceptions=True)
+        _cached("imdb", (title, year, is_series, season), lambda: fetch_imdb_safely(title, is_series, year, season)),
+        _cached("tmdb", (title, year, is_series, season), lambda: fetch_tmdb_safely(title, is_series, year, season)), return_exceptions=True)
     imdb_details = imdb_res if isinstance(imdb_res, dict) else {}
     tmdb_details = tmdb_res if isinstance(tmdb_res, dict) and tmdb_res else {}
     known_id = imdb_details.get("imdb_id") or tmdb_details.get("imdb_id")
@@ -1934,7 +1977,10 @@ async def collect_metadata(identity: dict, filename: str, caption: str, file_run
 
     blogger = None
     try:
-        blogger = await get_blogger_poster_url(title, year)
+        for q in _series_variants(title, season, is_series):          # series: 'Love Season 1' / 'Love S01' / 'Love'
+            blogger = await get_blogger_poster_url(q, year)
+            if blogger:
+                break
     except Exception as e:
         logger.warning(f"[POSTER] Blogger error: {e}")
     take(1, "Blogger (RPEditz, landscape)", blogger, "Blogger (RPEditz)", True, "no custom poster post found for this title")
@@ -1943,7 +1989,11 @@ async def collect_metadata(identity: dict, filename: str, caption: str, file_run
     if not poster_url:
         t_land = tmdb_details.get("backdrop_url")
         if not _ok_url(t_land):
-            t_land, t_src = await search_tmdb_backdrop_force(title, year, is_series), "TMDb backdrop (search)"
+            t_src = "TMDb backdrop (search)"
+            for q in _series_variants(title, season, is_series):
+                t_land = await search_tmdb_backdrop_force(q, year, is_series)
+                if t_land:
+                    break
     take(2, "TMDb backdrop (landscape)", t_land, t_src, True, "no TMDb backdrop" if tmdb_details else "no validated TMDb match")
     take(3, "IMDb scraper backdrop (landscape)", imdb_details.get("backdrop_url"), "IMDb scraper backdrop", True,
          "matched title but it has no backdrop" if imdb_details else "no validated IMDb match")
@@ -1964,7 +2014,7 @@ async def collect_metadata(identity: dict, filename: str, caption: str, file_run
         logger.info(f"[RUNTIME] Step {step}/4 {name}: {'[SUCCESS]' if ok else '[FAILED/FALLBACK]'} {detail}")
 
     def _sane(mins, label):
-        if mins and is_series and mins > SERIES_EP_MAX_MINUTES:
+        if mins and is_series and mins > SERIES_META_MAX_MINUTES:
             logger.info(f"[RUNTIME] {label} gave {mins} min which is too long for one episode - ignored")
             return None
         return mins
@@ -2152,7 +2202,10 @@ async def process_and_send_update(bot, filename, caption, file_runtime_mins=None
 
 async def _append_file(bot, movies, doc, file_data, alias_key, ctx):
     base_name = doc["_id"]
+    pending_post = not doc.get("message_id")      # previous post was deleted / failed to send -> publish NOW, whatever the file is
     if ctx["filename"] != "Unknown" and any(f.get("filename") == ctx["filename"] for f in (doc.get("files") or [])):
+        if pending_post:
+            await send_movie_update(bot, base_name)
         return   # (nameless files are all called "Unknown" - they are different files, never duplicates)
     update, set_fields = {}, {}
 
@@ -2180,12 +2233,16 @@ async def _append_file(bot, movies, doc, file_data, alias_key, ctx):
     if alias_key and alias_key != doc.get("clean_title") and alias_key not in (doc.get("alias_keys") or []):
         update["$addToSet"] = {"alias_keys": alias_key}
     if not update:
+        if pending_post:
+            await send_movie_update(bot, base_name)
         return
     await movies.update_one({"_id": base_name}, update)
     if not duplicate:
         STATS["files_merged"] += 1
         logger.info(f"[MERGED] '{ctx['filename']}' -> existing post '{base_name}' (no Gemini call)")
-    if "$push" in update or "$set" in update:
+    if pending_post:
+        await send_movie_update(bot, base_name)
+    elif "$push" in update or "$set" in update:
         schedule_update(bot, base_name)        # debounced caption edit
 
 
@@ -2312,7 +2369,7 @@ async def _process_file(bot, filename, caption, file_runtime_mins=None):
         await movies.insert_one(new_doc)
     except DuplicateKeyError:
         await movies.update_one({"_id": base_name}, {"$push": {"files": file_data}, "$addToSet": {"alias_keys": local_key}})
-        schedule_update(bot, base_name)
+        await send_movie_update(bot, base_name)      # publishes if still unpublished, otherwise schedules the edit
         return
     STATS["posts_created"] += 1
     await send_movie_update(bot, base_name)
@@ -2464,7 +2521,7 @@ def _series_runtime(movie_doc, base_name) -> str:
     ep_means = [sum(v) / len(v) for v in per_episode.values()]
 
     meta_min = _to_minutes(movie_doc.get("runtime"))
-    meta_ok = bool(meta_min and 0 < meta_min <= cap)
+    meta_ok = bool(meta_min and 0 < meta_min <= SERIES_META_MAX_MINUTES)
     if meta_ok and movie_doc.get("runtime_src") in ("TMDb episode runtime", "TMDb", "IMDb episode runtime", "IMDb", "OMDb"):
         return str(meta_min)
     if ep_means:                                    # no trusted metadata -> calculated average
@@ -2560,7 +2617,7 @@ def generate_movie_message(movie_doc, base_name, compact: int = 0):
         language=esc(language_str),
         episodes=epi_block,
         rating=clean_rating,
-        search_link=html.escape(str(getattr(temp, "B_LINK", None) or "https://t.me"), quote=True)
+        search_link=getattr(temp, "B_LINK", None) or f"@{_safe_bot_username()}"      # already HTML (a mention) - NOT escaped
     ).strip()
     # the template appends "/10" to the rating: "N/A/10" is a glitch -> show a plain "N/A"
     return re.sub(r"N/A\s*/\s*10", "N/A", text)
