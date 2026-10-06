@@ -31,7 +31,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Outfit:wght@600;700;800;900&display=swap" rel="stylesheet">
     
     <!-- HLS & Native Cast Sender -->
-    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1"></script>
     <script src="https://www.gstatic.com/cv/js/sender/v1/cast_sender.js?loadCastFramework=1"></script>
 
     <style>
@@ -566,6 +566,24 @@
         #error-screen .err-btn-sub:hover { background: rgba(255, 255, 255, 0.2); }
         #error-screen .err-btn-main:active,
         #error-screen .err-btn-sub:active { transform: scale(0.97); }
+
+        /* ===== Refactor additions ===== */
+        .lite-mode .ambient-layer, .lite-mode .aura-blob { display: none !important; }
+        .lite-mode #video-loader { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+        .lite-mode, .lite-mode body { background: #02040a !important; }
+        .lite-mode body::before, body.lite-mode::before { display: none !important; }
+        .lite-mode .glass-nav, .lite-mode .glass-panel { backdrop-filter: none !important; -webkit-backdrop-filter: none !important; }
+        body.lite-mode #btn-lite { border-color: rgba(0,210,255,.6); box-shadow: 0 0 10px rgba(0,210,255,.45); }
+        #video-loader { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background: rgba(0,0,0,0.45); }
+        @media (max-height: 480px) { .glass-popup-card { transform: scale(0.8) !important; max-height: 90vh !important; overflow-y: auto !important; } }
+        #unlock-btn { touch-action: none; -webkit-user-select: none; user-select: none; }
+        #btn-fill { position: absolute; right: 10px; bottom: 64px; z-index: 5; width: 30px; height: 30px; border-radius: 9999px; display: flex; align-items: center; justify-content: center; font-size: 12px; color: #e5e7eb; background: rgba(0,0,0,.55); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(6px); pointer-events: auto; transition: transform .15s; }
+        #btn-fill:active { transform: scale(.88); } #btn-fill.on { color: #00d2ff; border-color: rgba(0,210,255,.6); }
+        #health-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e; transition: background .25s, box-shadow .25s; }
+        #health-dot.buf { background: #eab308; box-shadow: 0 0 6px #eab308; }
+        #health-dot.err { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+        #speed-badge { position: absolute; top: 14%; left: 50%; transform: translateX(-50%); z-index: 55; padding: 5px 12px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: #fff; background: rgba(0,0,0,.6); border: 1px solid rgba(0,210,255,.5); backdrop-filter: blur(6px); box-shadow: 0 0 12px rgba(0,210,255,.35); opacity: 0; pointer-events: none; transition: opacity .15s; }
+        #speed-badge.show { opacity: 1; }
     </style>
 </head>
 <body class="antialiased">
@@ -589,6 +607,7 @@
         </a>
         <div class="flex items-center gap-2">
             <button id="btn-shortcuts" class="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/10 hover:bg-white/20 text-xs font-semibold text-gray-200 border border-white/10 transition active:scale-95"><i class="fas fa-keyboard text-sapphire"></i><span>Shortcuts</span></button>
+            <button id="btn-lite" type="button" title="Toggle Lite Mode" aria-label="Toggle Lite Mode" class="w-8 h-8 shrink-0 rounded-full bg-white/10 hover:bg-white/20 border border-white/15 backdrop-blur flex items-center justify-center text-xs active:scale-90 transition"><i class="fas fa-bolt text-sapphire"></i></button>
             <a href="https://t.me/BoultFlix" target="_blank" class="bg-gradient-to-r from-sapphire to-cobalt hover:from-cyan-300 hover:to-blue-600 px-4 py-1.5 rounded-full text-[11px] md:text-xs font-bold tracking-wide text-black transition inline-flex items-center justify-center gap-1.5 shadow-[0_0_15px_rgba(0,210,255,0.4)] active:scale-95 leading-none h-8">
             <i class="fab fa-telegram-plane"></i><span>Join Channel</span>
         </a>
@@ -611,7 +630,7 @@
         <!-- Master Video Player Frame -->
         <div class="glass-panel p-0.5 sm:p-1 mb-4 w-full">
             <div class="player-container" id="player-container">
-                <video id="video-player" playsinline preload="auto" x-webkit-airplay="allow" crossorigin="anonymous"></video>
+                <video id="video-player" autopictureinpicture playsinline preload="auto" x-webkit-airplay="allow" crossorigin="anonymous"></video>
 
                 <!-- Network Buffer Spinner -->
                 <div id="video-loader" class="hidden">
@@ -652,11 +671,13 @@
                 <!-- Mobile Screen Lock: floating Unlock -->
                 <button id="unlock-btn" class="hidden w-10 h-10 rounded-full bg-black/60 backdrop-blur border border-white/20 text-gray-100 items-center justify-center text-sm active:scale-90 transition" title="Unlock"><i class="fas fa-lock-open"></i></button>
 
+                <div id="speed-badge"><i class="fas fa-forward"></i> 2X Speed</div>
                 <!-- HUD Controls Layer -->
                 <div class="hud" id="hud">
+                    <button id="btn-fill" title="Fill Screen"><i class="fas fa-expand-arrows-alt"></i></button>
                     <!-- Top HUD Bar -->
                     <div class="hud-top p-2.5 sm:p-3 flex justify-between items-center bg-gradient-to-b from-black/90 to-transparent">
-                        <span class="text-[10px] sm:text-xs font-medium text-gray-200 truncate max-w-[60%] drop-shadow">{{file_name}}</span>
+                        <div class="flex items-center gap-1.5 min-w-0 max-w-[60%]"><span id="health-dot" title="Stream health"></span><span class="text-[10px] sm:text-xs font-medium text-gray-200 truncate drop-shadow">{{file_name}}</span></div>
                         <div class="flex items-center gap-1.5 ml-auto">
                             <button class="w-7 h-7 sm:w-8 sm:h-8 rounded-full hover:bg-white/15 flex items-center justify-center text-[11px] sm:text-xs transition active:scale-90 text-gray-200" onclick="openPopup('aspect-popup')" title="Aspect Ratio">
                                 <i class="fas fa-crop-alt"></i>
@@ -1013,7 +1034,7 @@
                 </div>
                 <div class="flex gap-2.5">
                     <button onclick="closeAllPopups()" class="flex-1 py-2.5 rounded-xl bg-white/10 hover:bg-white/20 text-gray-200 font-bold text-xs transition active:scale-95">Close</button>
-                    <button onclick="playInVlc()" class="flex-[1.5] py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-400 hover:to-rose-500 text-white font-extrabold text-xs tracking-wide shadow-[0_0_20px_rgba(239,68,68,0.45)] transition active:scale-95 flex items-center justify-center gap-2"><i class="fas fa-external-link-alt"></i><span>Play in VLC</span></button>
+                    <button onclick="playInVlc()" class="group flex-[1.5] py-2.5 rounded-xl bg-gradient-to-r from-red-500 via-rose-600 to-red-500 hover:from-red-400 hover:to-rose-500 text-white font-extrabold text-xs tracking-wide shadow-[0_0_20px_rgba(239,68,68,0.5)] transition active:scale-95 flex items-center justify-center gap-2"><span>Play in VLC</span><i class="fas fa-arrow-right text-xs transition-transform duration-300 group-hover:translate-x-1.5"></i></button>
                 </div>
             </div>
         </div>
@@ -1104,6 +1125,18 @@
         // Auto trigger head fetch for smooth instant download
         setTimeout(() => prefetchDownload(document.createElement('div')), 1000);
 
+        const LS = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }, remove(k){ try { localStorage.removeItem(k); } catch(e){} } };
+        const LITE = { key: 'boultLiteMode', get on(){ return document.body.classList.contains('lite-mode'); } };
+        let liteAutoPending = false;
+        (function(){
+            const saved = LS.get(LITE.key);
+            if (saved === '1') document.body.classList.add('lite-mode');
+            else if (saved === null && (navigator.hardwareConcurrency || 8) <= 4) { document.body.classList.add('lite-mode'); liteAutoPending = true; }
+        })();
+        function applyHlsLite() {
+            const h = window.hlsInstance; if (!h) return;
+            try { h.config.capLevelToPlayerSize = !LITE.on; if (LITE.on) h.autoLevelCapping = -1; } catch(e){}
+        }
         const video = document.getElementById('video-player');
         video.preload = "auto"; // Ensuring auto preload is active
         const playerContainer = document.getElementById('player-container');
@@ -1291,7 +1324,7 @@
                     autoStartLoad: true,
                     startFragPrefetch: true,
                     startLevel: -1,
-                    capLevelToPlayerSize: true,
+                    capLevelToPlayerSize: !LITE.on,
                     // Jitter integration for handling 50+ concurrent users properly
                     fragLoadingRetryDelay: 1000, 
                     manifestLoadingRetryDelay: 1000
@@ -1632,7 +1665,7 @@
             }
 
             // Fixed Resume logic - Video immediately pauses in background until user decides
-            const savedPos = localStorage.getItem(SAVED_POS_KEY);
+            const savedPos = LS.get(SAVED_POS_KEY);
             if (savedPos && parseFloat(savedPos) > 10) {
                 document.getElementById('resume-time').textContent = formatTime(parseFloat(savedPos));
                 if (!document.getElementById('welcome-popup').classList.contains('active')) {
@@ -1653,12 +1686,12 @@
             }
             if (video.currentTime > 5 && video.currentTime < video.duration - 10) {
                 if (Math.floor(video.currentTime) % 3 === 0) {
-                    localStorage.setItem(SAVED_POS_KEY, video.currentTime);
+                    LS.set(SAVED_POS_KEY, video.currentTime);
                 }
             }
         });
 
-        video.addEventListener('ended', () => { try { localStorage.removeItem(SAVED_POS_KEY); } catch (e) {} });
+        video.addEventListener('ended', () => { try { LS.remove(SAVED_POS_KEY); } catch (e) {} });
 
         video.addEventListener('progress', () => {
             if (video.buffered.length > 0 && video.duration) {
@@ -1874,7 +1907,7 @@
         }
 
         function dismissWelcome() {
-            const savedPos = localStorage.getItem(SAVED_POS_KEY);
+            const savedPos = LS.get(SAVED_POS_KEY);
             if (savedPos && parseFloat(savedPos) > 10) {
                 document.getElementById('resume-time').textContent = formatTime(parseFloat(savedPos));
                 document.getElementById('welcome-popup').classList.remove('active');
@@ -1958,6 +1991,11 @@
             isDownloadViewActive = true;
             wasPlayingBeforePopup = false; pendingAutoplay = false;
             closeAllPopups();
+            if (!dlPushed) {
+                if (popupHistoryPushed) { popupHistoryPushed = false; clearTimeout(popupHistoryTimer); history.replaceState({ dl: 1 }, ''); }
+                else history.pushState({ dl: 1 }, '');
+                dlPushed = true;
+            }
             video.pause();
             if (window.hlsInstance) window.hlsInstance.stopLoad();
             
@@ -1985,6 +2023,7 @@
         }
 
         function backToPlayerView() {
+            if (dlPushed) { dlPushed = false; history.back(); }
             isDownloadViewActive = false;   // stays paused until the user presses play
             if (window.hlsInstance) window.hlsInstance.startLoad(video.currentTime);
             document.getElementById('download-view').classList.add('hidden');
@@ -2149,7 +2188,7 @@
         });
 
         window.resumePlayback = function() {
-            const savedPos = localStorage.getItem(SAVED_POS_KEY);
+            const savedPos = LS.get(SAVED_POS_KEY);
             if (savedPos) {
                 if (video.fastSeek) {
                     video.fastSeek(parseFloat(savedPos));
@@ -2169,7 +2208,7 @@
                 video.currentTime = 0;
             }
             if (window.hlsInstance) window.hlsInstance.startLoad(0);
-            localStorage.removeItem(SAVED_POS_KEY);
+            LS.remove(SAVED_POS_KEY);
             pendingAutoplay = false;
             closeAllPopups();
             togglePlay();
@@ -2189,7 +2228,7 @@
         function playInVlc() { wasPlayingBeforePopup = false; pendingAutoplay = false; closeAllPopups(); launchApp('vlc'); }
         setInterval(() => {
             const playing = !video.paused && !video.ended && !video.seeking && video.readyState >= 3 && !isDownloadViewActive;
-            playedSecs = playing ? playedSecs + 1 : 0;
+            if (!video.paused && !video.ended && !video.muted && video.volume > 0 && !isDownloadViewActive) playedSecs++;
             if (playedSecs < 30 || audioFailDismissed || video.muted || video.volume === 0) return;
             if (document.querySelector('.glass-popup-backdrop.active')) return;
             const noAudio = (typeof video.webkitAudioDecodedByteCount === 'number' && video.webkitAudioDecodedByteCount === 0)
@@ -2243,6 +2282,147 @@
             const w = document.getElementById('welcome-popup');
             if (w && w.classList.contains('active')) dismissWelcome(); else closeAllPopups();
         });
+
+
+        // ================= REFACTOR FEATURES =================
+        let dlPushed = false;
+        window.addEventListener('popstate', () => {
+            if (dlPushed && !document.getElementById('download-view').classList.contains('hidden')) { dlPushed = false; backToPlayerView(); }
+        });
+
+        // --- Lite Mode ---
+        function setLite(on, persist) {
+            document.body.classList.toggle('lite-mode', on);
+            if (persist) LS.set(LITE.key, on ? '1' : '0');
+            applyHlsLite();
+        }
+        function autoLite() {
+            if (LITE.on || LS.get(LITE.key) === '0') return;
+            setLite(true, false);
+            showToast('Lite Mode enabled to stabilize playback');
+        }
+        document.getElementById('btn-lite').addEventListener('click', () => {
+            setLite(!LITE.on, true);
+            showToast(LITE.on ? 'Lite Mode Active' : 'Normal Mode Active');
+        });
+        if (liteAutoPending) setTimeout(() => showToast('Lite Mode enabled to stabilize playback'), 700);
+        applyHlsLite();
+        (function lagWatch() {
+            let base = null, t0 = 0, iv = null;
+            video.addEventListener('playing', () => {
+                if (iv || base !== null || !video.getVideoPlaybackQuality) return;
+                base = video.getVideoPlaybackQuality().droppedVideoFrames; t0 = Date.now();
+                iv = setInterval(() => {
+                    const d = video.getVideoPlaybackQuality().droppedVideoFrames - base;
+                    if (d > 10) { clearInterval(iv); autoLite(); }
+                    else if (Date.now() - t0 >= 10000) clearInterval(iv);
+                }, 1000);
+            });
+        })();
+
+        // --- Auto PiP ---
+        let autoPip = false;
+        document.addEventListener('visibilitychange', async () => {
+            try {
+                if (document.hidden) {
+                    if (!video.paused && !video.ended && !isDownloadViewActive && document.pictureInPictureEnabled && !video.disablePictureInPicture && !document.pictureInPictureElement) {
+                        await video.requestPictureInPicture(); autoPip = true;
+                    }
+                } else if (autoPip) {
+                    autoPip = false;
+                    if (document.pictureInPictureElement === video) await document.exitPictureInPicture();
+                }
+            } catch (e) {}
+        });
+        video.addEventListener('leavepictureinpicture', () => { autoPip = false; });
+
+        // --- Free-draggable unlock button ---
+        (function () {
+            let sx, sy, ox, oy, moved = false, dragging = false, justDragged = false;
+            const clamp = () => {
+                if (!unlockBtn.style.left) return;
+                const c = playerContainer.getBoundingClientRect(), b = unlockBtn.getBoundingClientRect();
+                unlockBtn.style.left = Math.min(Math.max(0, b.left - c.left), c.width - b.width) + 'px';
+                unlockBtn.style.top = Math.min(Math.max(0, b.top - c.top), c.height - b.height) + 'px';
+            };
+            unlockBtn.addEventListener('touchstart', (e) => {
+                const t = e.touches[0], c = playerContainer.getBoundingClientRect(), b = unlockBtn.getBoundingClientRect();
+                sx = t.clientX; sy = t.clientY; ox = b.left - c.left; oy = b.top - c.top; moved = false; dragging = true;
+                unlockBtn.style.transform = 'none'; unlockBtn.style.left = ox + 'px'; unlockBtn.style.top = oy + 'px';
+            }, { passive: true });
+            unlockBtn.addEventListener('touchmove', (e) => {
+                if (!dragging) return;
+                e.preventDefault();
+                const t = e.touches[0], dx = t.clientX - sx, dy = t.clientY - sy;
+                if (Math.abs(dx) + Math.abs(dy) > 6) moved = true;
+                const c = playerContainer.getBoundingClientRect(), b = unlockBtn.getBoundingClientRect();
+                unlockBtn.style.left = Math.min(Math.max(0, ox + dx), c.width - b.width) + 'px';
+                unlockBtn.style.top = Math.min(Math.max(0, oy + dy), c.height - b.height) + 'px';
+            }, { passive: false });
+            const end = () => { dragging = false; if (moved) { justDragged = true; setTimeout(() => justDragged = false, 350); } };
+            unlockBtn.addEventListener('touchend', end); unlockBtn.addEventListener('touchcancel', end);
+            unlockBtn.addEventListener('click', (e) => { if (justDragged) { e.stopImmediatePropagation(); e.preventDefault(); } }, true);
+            window.addEventListener('resize', clamp); window.addEventListener('orientationchange', () => setTimeout(clamp, 300));
+        })();
+
+        // --- Hold for 2X speed ---
+        (function () {
+            const badge = document.getElementById('speed-badge');
+            let timer = null, active = false, prev = 1, sx = 0, sy = 0, lastTouch = 0;
+            const blocked = () => isDownloadViewActive || document.querySelector('.glass-popup-backdrop.active') || video.paused || !FILE_URL;
+            function start(e, x, y) {
+                if (e.target.closest('button, input, #timeline-container, #unlock-btn, .hud-top, #error-screen')) return;
+                const r = playerContainer.getBoundingClientRect(), ry = (y - r.top) / r.height;
+                if (ry < 0.15 || ry > 0.8 || blocked()) return;
+                sx = x; sy = y; clearTimeout(timer);
+                timer = setTimeout(() => {
+                    if (blocked()) return;
+                    prev = video.playbackRate; active = true; video.playbackRate = 2; badge.classList.add('show');
+                    if (navigator.vibrate) try { navigator.vibrate(15); } catch (e) {}
+                }, 500);
+            }
+            function stop() {
+                clearTimeout(timer);
+                if (!active) return;
+                active = false; video.playbackRate = prev; badge.classList.remove('show');
+                const eat = (e) => { e.stopImmediatePropagation(); e.preventDefault(); };
+                playerContainer.addEventListener('click', eat, { capture: true, once: true });
+                setTimeout(() => playerContainer.removeEventListener('click', eat, true), 400);
+            }
+            playerContainer.addEventListener('touchstart', (e) => { lastTouch = Date.now(); start(e, e.touches[0].clientX, e.touches[0].clientY); }, { passive: true });
+            playerContainer.addEventListener('touchmove', (e) => { if (!active && Math.abs(e.touches[0].clientX - sx) + Math.abs(e.touches[0].clientY - sy) > 12) clearTimeout(timer); }, { passive: true });
+            playerContainer.addEventListener('touchend', stop); playerContainer.addEventListener('touchcancel', stop);
+            playerContainer.addEventListener('mousedown', (e) => { if (e.button === 0 && Date.now() - lastTouch > 800) start(e, e.clientX, e.clientY); });
+            window.addEventListener('mouseup', stop); playerContainer.addEventListener('mouseleave', stop);
+            playerContainer.addEventListener('contextmenu', (e) => { if (active || timer) e.preventDefault(); });
+            document.addEventListener('visibilitychange', stop);
+        })();
+
+        // --- Fill screen ---
+        (function () {
+            const b = document.getElementById('btn-fill');
+            b.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const fill = getComputedStyle(video).objectFit !== 'cover';
+                video.style.setProperty('object-fit', fill ? 'cover' : 'contain', 'important');
+                b.classList.toggle('on', fill);
+                showToast(fill ? 'Fill Screen: On' : 'Fit to Screen');
+                showHudAndCursor();
+            });
+            b.addEventListener('dblclick', (e) => e.stopPropagation());
+        })();
+
+        // --- HUD health dot ---
+        (function () {
+            const d = document.getElementById('health-dot');
+            const set = (c) => { d.className = c; };
+            const ok = () => set(navigator.onLine ? '' : 'err');
+            ['playing', 'canplay', 'pause', 'seeked'].forEach(ev => video.addEventListener(ev, ok));
+            ['waiting', 'stalled', 'seeking'].forEach(ev => video.addEventListener(ev, () => { if (!video.paused || ev !== 'seeking') set(navigator.onLine ? 'buf' : 'err'); }));
+            video.addEventListener('error', () => set('err'));
+            window.addEventListener('offline', () => set('err'));
+            window.addEventListener('online', () => set(video.readyState < 3 && !video.paused ? 'buf' : ''));
+        })();
 
         initPlayer();
         syncPopupHistory();
