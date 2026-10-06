@@ -112,8 +112,9 @@ OTT_PLATFORMS = {
     "nf": "Netflix", "netflix": "Netflix", "sonyliv": "SonyLiv", "sony": "SonyLiv",
     "sliv": "SonyLiv", "amzn": "Amazon Prime Video",
     "primevideo": "Amazon Prime Video", "amazon": "Amazon Prime Video",
-    "hotstar": "Disney+ Hotstar", "disney": "Disney+", "dnp": "Disney+",
-    "zee5": "Zee5", "dsnp": "Disney+ Hotstar", "jio": "JioHotstar", "jiohotstar": "JioHotstar", "mxplayer": "MX Player", "jhs": "JioHotstar", "jiocinema": "JioCinema",
+    "hotstar": "JioHotstar", "disney": "JioHotstar", "dnp": "JioHotstar", "dsnp": "JioHotstar",
+    "jio": "JioHotstar", "jiohotstar": "JioHotstar", "jhs": "JioHotstar", "jiocinema": "JioHotstar",
+    "zee5": "Zee5", "mxplayer": "MX Player",
     "aha": "Aha", "hbo": "HBO Max", "paramount": "Paramount+", "atv": "Apple TV+", "atvp": "Apple TV+", "appletv": "Apple TV+",
     "hoichoi": "Hoichoi", "sunnxt": "Sun NXT", "viki": "Viki",
     "crunchyroll": "Crunchyroll", "hulu": "Hulu", "peacock": "Peacock",
@@ -300,26 +301,46 @@ def split_trailing_year(title: str) -> Tuple[str, Optional[str]]:
     return " ".join(tokens), None
 
 
+_UPLOADER_HANDLE_RE = re.compile(r"@[A-Za-z0-9.\-]+(?:_[A-Za-z0-9.\-]+)*(?=[\s\[\(\{])")   # '@Ac_Linkzz ' (needs a separator after it, so
+                                                                                          # all-underscore filenames are never swallowed)
+_SITE_TOKEN_RE = re.compile(r"^[A-Za-z]{4,}\d[A-Za-z0-9]*$")                                # 'Toonworld4all', 'Filmy4wap' (letters+digit)
+
+
+def strip_uploader_handles(text: str) -> str:
+    return _UPLOADER_HANDLE_RE.sub(" ", text or "")
+
+
+def _is_uploader_tag(inner: str) -> bool:
+    """[CineHDs] / [Toonworld4all] / [M2LiNKS] / [Ac_Linkzz] / [site.com] -> release-group or watermark, not title."""
+    if re.fullmatch(r"[A-Za-z]+", inner):
+        return True
+    if re.fullmatch(r"@?[A-Za-z0-9_.]+", inner) and re.search(r"[A-Za-z]", inner) and re.search(r"[\d_.@]", inner):
+        return not YEAR_PATTERN.fullmatch(inner)
+    return inner.startswith("@")
+
+
 def _unwrap_brackets(text: str) -> str:
     def repl(m):
         inner = m.group(1).strip()
-        # "[CineHDs]" style single-word uploader tags -> drop, anything else -> keep the content
-        if not inner or re.fullmatch(r"[A-Za-z]+", inner):
+        if not inner or _is_uploader_tag(inner):
             return " "
         return f" {inner} "
-    return re.sub(r"[\[\(\{]\s*([^\]\)\}]*?)\s*[\]\)\}]", repl, text)
+    return re.sub(r"[\[\(\{]\s*([^\]\)\}]*?)\s*[\]\)\}]", repl, strip_uploader_handles(text))
 
 
 def _clean_title_head(title: str) -> str:
-    t = _strip_season_episode_tokens(title)
+    t = _strip_season_episode_tokens(strip_uploader_handles(title))
     t = SUB_TAG_REGEX.sub(" ", t)
-    return " ".join(w for w in t.split() if w.lower() not in _HEAD_JUNK)
+    words = [w for w in t.split() if w.lower() not in _HEAD_JUNK]
+    while len(words) > 1 and _SITE_TOKEN_RE.match(words[0]):      # leading watermark that lost its brackets
+        words.pop(0)
+    return " ".join(words)
 
 
 def raw_title_head(filename: str) -> str:
     """The title part of a filename BEFORE any word-stripping ('Mar.Jaayen.2026.1080p' -> 'Mar Jaayen'), used to keep title
     words out of OTT / language detection."""
-    name = _unwrap_brackets(AUDIO_CHANNELS_PATTERN.sub(" ", EXT_RE.sub("", clean_mentions_links(filename or "").strip())))
+    name = _unwrap_brackets(AUDIO_CHANNELS_PATTERN.sub(" ", EXT_RE.sub("", clean_mentions_links(strip_uploader_handles(decode_title_escapes(filename or ""))).strip())))
     text = normalize(name)
     m = _CUT_RE.search(text)
     tokens = (text[:m.start()] if m else text).split()
@@ -333,7 +354,7 @@ def raw_title_head(filename: str) -> str:
 def parse_local_title(filename: str) -> Tuple[str, Optional[str]]:
     """Local, deterministic title/year extraction.
     'Sardar.2.2026.480p.WEB-DL.Hindi.ESu.mkv' -> ('Sardar 2', '2026')"""
-    name = clean_mentions_links(filename or "")
+    name = clean_mentions_links(strip_uploader_handles(decode_title_escapes(filename or "")))
     name = EXT_RE.sub("", name.strip())
     name = AUDIO_CHANNELS_PATTERN.sub(" ", name)
     name = _unwrap_brackets(name)
@@ -389,6 +410,9 @@ def is_good_title_match(query: str, found_title: str) -> bool:
     if q == f:
         return True
     if len(q) == 1:        # 'Love' must NEVER match 'The Love Hypothesis' / 'Love Aaj Kal'
+        # ...but 'Asur' MAY match 'Asur: Welcome to Your Dark Side' (text before the colon is exactly the query)
+        if ":" in (found_title or "") and _title_tokens((found_title or "").split(":", 1)[0]) == q:
+            return True
         return False
     if not all(w in f for w in q):
         return False
@@ -510,7 +534,7 @@ def accept_result(res: dict, title: str, year: Optional[str], is_series: bool) -
     if not is_good_title_match(title, found):
         a, b = canon_key(title), canon_key(found)
         same_digits = {w for w in a.split() if w.isdigit()} == {w for w in b.split() if w.isdigit()}
-        if not (same_digits and SequenceMatcher(None, a, b).ratio() >= 0.82):
+        if not (same_digits and len(a.split()) > 1 and SequenceMatcher(None, a, b).ratio() >= 0.82):
             return False
     ry = _result_year(res)
     if year and ry and not is_series and not _years_compatible(year, ry):
@@ -680,14 +704,20 @@ async def identify_movie_with_gemini(filename: str, caption: str = "", duration_
         "3. is_series: true only for TV/web series.\n"
         "4. ott: the Indian streaming platform(s) that stream or digitally release it. "
         "If a platform tag is present in the filename (AMZN/Prime = Amazon Prime Video, NF = Netflix, JHS/JioHotstar/DSNP/HS = "
-        "JioHotstar or Disney+ Hotstar, ZEE5, SonyLIV/SLIV, Aha, SunNXT, Hoichoi, MX Player, Lionsgate Play, Apple TV+) "
+        "JioHotstar (Disney+ Hotstar is now JioHotstar - NEVER output Disney+ Hotstar), ZEE5, SonyLIV/SLIV, Aha, SunNXT, Hoichoi, MX Player, Lionsgate Play, Apple TV+) "
         "treat it as strong evidence. Major Bollywood and Hollywood titles usually stream on SEVERAL Indian services at the same time "
-        "(e.g. Netflix, Amazon Prime Video, SonyLIV, JioHotstar, Zee5) - return ALL of them. List ALL available Indian platforms in the JSON array (e.g. [\"Netflix\", \"Amazon Prime Video\", \"JioHotstar\"]). Do not stop at one. "
+        "(e.g. Netflix, Amazon Prime Video, SonyLIV, JioHotstar, Zee5) - return ALL of them. "
+        "Indian, Bollywood AND Hollywood releases stream simultaneously across several Indian services under different models: "
+        "SVOD (subscription: Netflix, Prime Video, SonyLIV, Zee5, JioHotstar, Apple TV+), "
+        "TVOD/PVOD (digital rent / buy, e.g. on Amazon Prime Video, Zee5, Apple TV+) and "
+        "AVOD (free / ad-supported, e.g. MX Player, JioHotstar). Count a platform if it is active in India under ANY of these models. "
+        "You MUST return an array of ALL valid platforms currently active in India for this title "
+        "(e.g. [\"Netflix\", \"Amazon Prime Video\", \"JioHotstar\"]) - never stop at just one distributor. "
         "If the digital-release source is YES, you MUST give your best answer from "
         "the film's known/announced digital rights, studio/producer deals and typical platform for its language and cast; "
         "do not return an empty list just because you are unsure. "
         "Return [] ONLY when the source is a theatrical copy (CAM/HDTC/PreDVD) with no platform tag.\n"
-        "   Use these exact names: Netflix, Amazon Prime Video, JioHotstar, Disney+ Hotstar, SonyLIV, Zee5, Aha, "
+        "   Use these exact names: Netflix, Amazon Prime Video, JioHotstar, SonyLIV, Zee5, Aha, "
         "Sun NXT, Apple TV+, Hoichoi, MX Player, Lionsgate Play.\n\n"
         "Return ONLY JSON: {\"title\": \"\", \"year\": \"YYYY\", \"is_series\": false, \"ott\": []}"
     )
@@ -874,14 +904,15 @@ def format_movie_qualities(quality_list: list) -> str:
 
 def extract_ott_platform(text: str) -> str:
     text = text.lower()
-    platforms = {plat for key, plat in OTT_PLATFORMS.items() if re.search(rf"\b{re.escape(key)}\b", text)}
+    platforms = {_hotstar_final(plat) for key, plat in OTT_PLATFORMS.items() if re.search(rf"\b{re.escape(key)}\b", text)}
     return " | ".join(sorted(platforms)) if platforms else "N/A"
 
 _OTT_BASE = dict(OTT_PLATFORMS)                 # shipped table (weak keys already removed); runtime config extends / disables
 _OTT_CANON_EXTRA = {
     "primevideo": "Amazon Prime Video", "amazonprimevideo": "Amazon Prime Video", "amazonprime": "Amazon Prime Video",
-    "disneyplushotstar": "Disney+ Hotstar", "disneyhotstar": "Disney+ Hotstar", "hotstar": "Disney+ Hotstar",
-    "jiohotstar": "JioHotstar", "jiocinema": "JioCinema", "sonyliv": "SonyLiv", "appletvplus": "Apple TV+",
+    "disneyplushotstar": "JioHotstar", "disneyhotstar": "JioHotstar", "disneyplus": "JioHotstar", "disney": "JioHotstar",
+    "hotstar": "JioHotstar", "dsnp": "JioHotstar", "dnp": "JioHotstar", "jio": "JioHotstar", "jhs": "JioHotstar",
+    "jiohotstar": "JioHotstar", "jiocinema": "JioHotstar", "sonyliv": "SonyLiv", "appletvplus": "Apple TV+",
     "appletv": "Apple TV+", "sunnxt": "Sun NXT", "mxplayer": "MX Player", "zee5": "Zee5",
 }
 _OTT_CANON = {}
@@ -898,18 +929,43 @@ def _rebuild_ott_canon():
 _rebuild_ott_canon()
 
 
+_LEGACY_HOTSTAR = {"disneyhotstar", "disneyplushotstar", "disney+hotstar", "disney", "disneyplus", "hotstar", "jiocinema"}
+
+
+def _hotstar_final(plat: Optional[str]) -> Optional[str]:
+    """Whatever table/DB/admin override produced it, every Hotstar/Disney/Jio variant is ONE platform: JioHotstar."""
+    if plat and squash(plat) in _LEGACY_HOTSTAR:
+        return "JioHotstar"
+    return plat
+
+
 def canonicalize_ott(item) -> Optional[str]:
     raw = str(item or "")
     s = squash(raw)
     if not s:
         return None
     if s in _OTT_CANON:
-        return _OTT_CANON[s]
+        return _hotstar_final(_OTT_CANON[s])
     low = raw.lower()
     for key, plat in OTT_PLATFORMS.items():
         if re.search(rf"\b{re.escape(key)}\b", low):
-            return plat
+            return _hotstar_final(plat)
     return None
+
+
+def merge_ott(*values) -> str:
+    """Union of any number of 'A | B' strings / lists (canonicalised, de-duplicated, order kept) -> 'A | B' or 'N/A'."""
+    out = []
+    for v in values:
+        parts = v if isinstance(v, (list, tuple, set)) else re.split(r"[|,;]", str(v or ""))
+        for p in parts:
+            p = str(p or "").strip()
+            if not p or p.upper() in ("N/A", "NONE"):
+                continue
+            plat = canonicalize_ott(p) or p
+            if plat not in out:
+                out.append(plat)
+    return " | ".join(out) if out else "N/A"
 
 
 def _without_title(text: str, title: str) -> str:
@@ -929,6 +985,7 @@ async def fetch_online_ott(imdb_details: dict, tmdb_details: dict, filename: str
     trace = trace if trace is not None else []
 
     def add(plat, source):
+        plat = _hotstar_final(plat)
         if plat and plat not in ordered:
             ordered.append(plat)
         if source not in trace:
@@ -1002,6 +1059,7 @@ async def fetch_online_ott(imdb_details: dict, tmdb_details: dict, filename: str
     text = _without_title(f"{filename} {caption}", title)
     f_found = []
     for key, plat in OTT_PLATFORMS.items():
+        plat = _hotstar_final(plat)
         if re.search(rf"\b{re.escape(key)}\b", text) and plat not in f_found:
             f_found.append(plat)
     if f_found:
@@ -1011,10 +1069,8 @@ async def fetch_online_ott(imdb_details: dict, tmdb_details: dict, filename: str
         logger.info("[OTT] Step 4/4 Filename/caption tags: [FAILED/FALLBACK] no tag found")
 
     # same service under two names -> keep one
-    if "JioHotstar" in ordered:
-        ordered = [p for p in ordered if p not in ("Disney+ Hotstar", "Disney+")]
-    elif "Disney+ Hotstar" in ordered:
-        ordered = [p for p in ordered if p != "Disney+"]
+    ordered = [p for p in ordered if p not in ("Disney+ Hotstar", "Disney+", "JioCinema")] + \
+              (["JioHotstar"] if "JioHotstar" not in ordered and any(p in ("Disney+ Hotstar", "Disney+", "JioCinema") for p in ordered) else [])
     if "HBO Max" in ordered:
         ordered = [p for p in ordered if p != "Max"]
     return " | ".join(ordered) if ordered else "N/A"
@@ -2218,9 +2274,6 @@ async def _append_file(bot, movies, doc, file_data, alias_key, ctx):
 
     # dynamic OTT update: post has no OTT yet, this file carries a tag (AMZN/NF/...) -> add it & edit caption
     new_ott = file_data.get("ott_platform")
-    if new_ott and new_ott != "N/A" and not _doc_has_ott(doc):
-        set_fields["ott_platform"] = new_ott
-        logger.info(f"[OTT] '{base_name}' had no OTT, adding '{new_ott}' from file tag")
 
     is_series_doc = doc.get("tag") == "#SERIES" or file_data.get("tag") == "#SERIES"
     if (not is_series_doc and (not doc.get("runtime") or str(doc.get("runtime")) == "N/A")
@@ -2228,6 +2281,14 @@ async def _append_file(bot, movies, doc, file_data, alias_key, ctx):
         set_fields["runtime"] = ctx["runtime"]
     if needs_metadata_refresh(doc):
         set_fields.update(await _refresh_fields(doc, ctx))
+    # dynamic multi-OTT merge: earlier upload JioHotstar + this file AMZN/NF -> "Amazon Prime Video | JioHotstar" (set union)
+    old_ott = merge_ott(doc.get("ott_platform"))
+    merged_ott = merge_ott(doc.get("ott_platform"), set_fields.get("ott_platform"), new_ott)
+    if merged_ott != "N/A" and merged_ott != old_ott:
+        set_fields["ott_platform"] = merged_ott
+        logger.info(f"[OTT] '{base_name}': {old_ott} -> {merged_ott}")
+    elif "ott_platform" in set_fields:
+        set_fields["ott_platform"] = merged_ott if merged_ott != "N/A" else set_fields["ott_platform"]
     if set_fields:
         update["$set"] = set_fields
     if alias_key and alias_key != doc.get("clean_title") and alias_key not in (doc.get("alias_keys") or []):
@@ -2546,7 +2607,9 @@ def generate_movie_message(movie_doc, base_name, compact: int = 0):
                 all_languages.add(CAPTION_LANGUAGES.get(lang.strip().lower(), lang.strip().title()))
         if file.get("ott_platform") and file.get("ott_platform") != "N/A":
             for plat in file["ott_platform"].split("|"):
-                all_ott_platforms.add(OTT_PLATFORMS.get(plat.strip().lower(), plat.strip()))
+                cp = canonicalize_ott(plat.strip()) or plat.strip()
+                if cp and cp.upper() != "N/A":
+                    all_ott_platforms.add(cp)
         _sn = _season_int(file.get("season"))
         if _sn is not None and file.get("episode") is not None:
             episodes_by_season[_sn].add(str(file["episode"]))
@@ -2557,7 +2620,9 @@ def generate_movie_message(movie_doc, base_name, compact: int = 0):
     if doc_ott and doc_ott != "N/A":
         for plat in str(doc_ott).split("|"):
             if plat.strip():
-                all_ott_platforms.add(plat.strip())
+                cp = canonicalize_ott(plat.strip()) or plat.strip()
+                if cp.upper() != "N/A":
+                    all_ott_platforms.add(cp)
 
     primary_tag = movie_doc.get("tag", "#MOVIE")
     is_series = (primary_tag == "#SERIES")
