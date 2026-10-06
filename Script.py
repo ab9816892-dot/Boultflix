@@ -36,11 +36,11 @@ class script(object):
 
     ABOUT_TXT = """<b>╭────[Mʏ Dᴇᴛᴀɪʟs ]────⍟
 ├⍟ Mʏ Nᴀᴍᴇ : <a href="https://t.me/{0}">Bᴏᴜʟᴛғʟɪx Mᴏᴠɪᴇs 🫧🫶🏼</a>
-├⍟ Dᴇᴠᴇʟᴏᴘᴇʀ : <a href="https://t.me/BoultFlix">Oᴡɴᴇʀ</a>
-├⍟ Lɪʙʀᴀʀʏ : <a href="https://docs.pyrogram.org/">Pʏʀᴏɢʀᴀᴍ</a>
-├⍟ Lᴀɴɢᴜᴀɢᴇ : <a href="https://www.python.org/">Pʏᴛʜᴏɴ 𝟹</a>
-├⍟ Dᴀᴛᴀʙᴀsᴇ : <a href="https://www.mongodb.com/">Mᴏɴɢᴏ ᴅʙ</a>
-├⍟ Bᴏᴛ Sᴇʀᴠᴇʀ : <a href="https://render.com">Rᴇɴᴅᴇʀ</a>
+├⍟ Dᴇᴠᴇʟᴏᴘᴇʀ : <a href="https://t.me/BoultFlix">Oᴡɴᴇʀ</a> ☄️
+├⍟ Lɪʙʀᴀʀʏ : <a href="https://docs.pyrogram.org/">Pʏʀᴏɢʀᴀᴍ</a> 🦢
+├⍟ Lᴀɴɢᴜᴀɢᴇ : <a href="https://www.python.org/">Pʏᴛʜᴏɴ 𝟹</a> 🕯️
+├⍟ Dᴀᴛᴀʙᴀsᴇ : <a href="https://www.mongodb.com/">Mᴏɴɢᴏ ᴅʙ</a> 🎐
+├⍟ Bᴏᴛ Sᴇʀᴠᴇʀ : Vɪʀᴛᴜᴀʟ Pʀɪᴠᴀᴛᴇ Sᴇʀᴠᴇʀ ⛲
 ├⍟ Bᴜɪʟᴅ Sᴛᴀᴛᴜs : ᴠ1.4 [ Sᴛᴀʙʟᴇ ]
 ╰───────────────⍟</b>"""
     RESTART_TXT = """
