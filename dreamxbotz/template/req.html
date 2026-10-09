@@ -571,12 +571,95 @@
         #video-loader { backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); background: rgba(0,0,0,0.45); }
         @media (max-height: 480px) { .glass-popup-card { transform: scale(0.8) !important; max-height: 90vh !important; overflow-y: auto !important; } }
         #unlock-btn { touch-action: none; -webkit-user-select: none; user-select: none; }
-        #btn-fill.on { color: #00d2ff; }
         #health-dot { width: 9px; height: 9px; flex: none; border-radius: 50%; background: #22c55e; box-shadow: 0 0 6px #22c55e; transition: background .25s, box-shadow .25s; }
         #health-dot.buf { background: #eab308; box-shadow: 0 0 6px #eab308; }
         #health-dot.err { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
         #speed-badge { position: absolute; top: 14%; left: 50%; transform: translateX(-50%); z-index: 55; padding: 5px 12px; border-radius: 9999px; font-size: 11px; font-weight: 800; letter-spacing: .04em; color: #fff; background: rgba(0,0,0,.6); border: 1px solid rgba(0,210,255,.5); backdrop-filter: blur(6px); box-shadow: 0 0 12px rgba(0,210,255,.35); opacity: 0; pointer-events: none; transition: opacity .15s; }
         #speed-badge.show { opacity: 1; }
+
+        /* ================= LIQUID GLASS UPGRADE ================= */
+        .glass-nav, nav.glass-nav, footer.glass-nav {
+            background: rgba(6, 12, 26, 0.72) !important;
+            backdrop-filter: blur(40px) saturate(220%); -webkit-backdrop-filter: blur(40px) saturate(220%);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 10px 35px rgba(0, 0, 0, 0.6), inset 0 -1px 0 rgba(255, 255, 255, 0.05);
+        }
+        .glass-panel {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(10, 18, 36, 0.65) 100%);
+            backdrop-filter: blur(45px) saturate(210%); -webkit-backdrop-filter: blur(45px) saturate(210%);
+            border: 1px solid rgba(255, 255, 255, 0.16);
+            box-shadow: 0 30px 70px -10px rgba(0, 0, 0, 0.9), inset 0 1px 2px rgba(255, 255, 255, 0.28);
+            border-radius: 1.35rem;
+        }
+        .ott-btn-primary {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.38) 0%, rgba(5, 150, 105, 0.28) 100%) !important;
+            backdrop-filter: blur(25px) saturate(200%);
+            -webkit-backdrop-filter: blur(25px) saturate(200%);
+            border: 1px solid rgba(52, 211, 153, 0.75) !important;
+            box-shadow: 0 12px 30px -4px rgba(16, 185, 129, 0.45), inset 0 1px 2px rgba(255, 255, 255, 0.5) !important;
+            border-radius: 1rem;
+            transition: all 0.22s ease;
+        }
+        .ott-btn-primary:hover {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.52) 0%, rgba(5, 150, 105, 0.42) 100%) !important;
+            border-color: rgba(52, 211, 153, 1) !important;
+            box-shadow: 0 15px 35px -2px rgba(16, 185, 129, 0.65), inset 0 1.5px 2px rgba(255, 255, 255, 0.7) !important;
+            transform: translateY(-2px);
+        }
+        .ott-btn-primary:active {
+            transform: scale(0.97);
+        }
+        .ott-btn-primary i {
+            color: #34d399 !important;
+            text-shadow: 0 0 10px rgba(52, 211, 153, 0.7);
+        }
+        .ott-btn-secondary {
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.07) 0%, rgba(12, 22, 44, 0.75) 100%) !important;
+            backdrop-filter: blur(25px) saturate(190%); -webkit-backdrop-filter: blur(25px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.16) !important;
+            box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+            border-radius: 1rem;
+        }
+        .intent-card {
+            background: linear-gradient(145deg, rgba(255, 255, 255, 0.06) 0%, rgba(10, 18, 34, 0.6) 100%) !important;
+            backdrop-filter: blur(20px) saturate(180%); -webkit-backdrop-filter: blur(20px) saturate(180%);
+            border: 1px solid rgba(255, 255, 255, 0.12) !important;
+            box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4), inset 0 1px 1px rgba(255, 255, 255, 0.18);
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .intent-card:hover {
+            transform: translateY(-3px);
+            border-color: rgba(0, 210, 255, 0.6) !important;
+            box-shadow: 0 14px 34px rgba(0, 0, 0, 0.55), 0 0 26px rgba(0, 210, 255, 0.28), inset 0 1px 1px rgba(0, 210, 255, 0.45);
+        }
+        .glass-popup-card, .liquid-glass-card {
+            background: linear-gradient(160deg, rgba(255, 255, 255, 0.08) 0%, rgba(10, 17, 35, 0.94) 40%, rgba(4, 8, 18, 0.98) 100%) !important;
+            backdrop-filter: blur(55px) saturate(230%); -webkit-backdrop-filter: blur(55px) saturate(230%);
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 35px 80px rgba(0, 0, 0, 0.95), 0 0 35px rgba(0, 210, 255, 0.15), inset 0 1.5px 1.5px rgba(255, 255, 255, 0.35);
+            border-radius: 1.75rem;
+        }
+        .vol-capsule {
+            background: rgba(10, 18, 36, 0.75) !important;
+            backdrop-filter: blur(25px) saturate(190%); -webkit-backdrop-filter: blur(25px) saturate(190%);
+            border: 1px solid rgba(255, 255, 255, 0.18) !important;
+            box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.2);
+        }
+        #btn-rewind, #btn-forward {
+            background: rgba(8, 14, 28, 0.65) !important;
+            backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+            border: 1px solid rgba(255, 255, 255, 0.2) !important;
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.6), inset 0 1px 1px rgba(255, 255, 255, 0.25);
+        }
+    
+        .glass-popup-card button .fa-times, .glass-popup-backdrop button .fa-times {
+            display: inline-block;
+            transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.25s ease !important;
+        }
+        .glass-popup-card button:hover .fa-times, .glass-popup-backdrop button:hover .fa-times {
+            transform: rotate(180deg) scale(1.15) !important;
+            color: #ef4444 !important;
+        }
     </style>
 </head>
 <body class="antialiased">
@@ -622,7 +705,7 @@
         <!-- Master Video Player Frame -->
         <div class="glass-panel p-0.5 sm:p-1 mb-4 w-full">
             <div class="player-container" id="player-container">
-                <video id="video-player" playsinline preload="auto" x-webkit-airplay="allow" crossorigin="anonymous"></video>
+                <video id="video-player" playsinline preload="metadata" x-webkit-airplay="allow" crossorigin="anonymous"></video>
 
                 <!-- Network Buffer Spinner -->
                 <div id="video-loader" class="hidden">
@@ -733,7 +816,6 @@
                                 <button class="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" id="btn-rotate-persistent" onclick="youtubeStyleLandscapeToggle(event)" title="Toggle Orientation">
                                     <i class="fas fa-rotate" id="rotate-screen-icon"></i>
                                 </button>
-                                <button class="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" id="btn-fill" title="Fit to Screen"><i class="fas fa-expand-arrows-alt"></i></button>
                                 <button class="w-6 h-6 sm:w-7 sm:h-7 flex items-center justify-center text-[11px] sm:text-xs hover:text-sapphire active:scale-90 text-gray-200" id="btn-fullscreen" title="Fullscreen">
                                     <i class="fas fa-expand" id="fs-icon"></i>
                                 </button>
@@ -861,7 +943,7 @@
             </div>
 
             <div class="flex flex-col sm:flex-row gap-2.5 w-full">
-                <a id="manual-dl-fallback" onmouseenter="prefetchDownload(this)" href="#" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-sapphire to-cobalt text-black font-extrabold text-xs sm:text-sm shadow-[0_0_20px_rgba(0,210,255,0.4)] active:scale-95 transition flex items-center justify-center gap-2">
+                <a id="manual-dl-fallback" href="#" class="flex-1 py-3 px-5 rounded-xl bg-gradient-to-r from-sapphire to-cobalt text-black font-extrabold text-xs sm:text-sm shadow-[0_0_20px_rgba(0,210,255,0.4)] active:scale-95 transition flex items-center justify-center gap-2">
                     <i class="fas fa-download"></i>
                     <span>Click Here If Not Started</span>
                 </a>
@@ -972,7 +1054,7 @@
                         <i class="fas fa-copy"></i>
                         <span>Copy Link for ADM / 1DM / FDM</span>
                     </button>
-                    <button onmouseenter="prefetchDownload(this)" onclick="directBrowserDownload()" class="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-gray-200 text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
+                    <button onclick="directBrowserDownload()" class="w-full py-3 px-4 rounded-xl bg-white/10 hover:bg-white/20 text-gray-200 text-xs font-semibold flex items-center justify-center gap-2 transition active:scale-95">
                         <i class="fas fa-globe"></i>
                         <span>Download via Browser</span>
                     </button>
@@ -1107,20 +1189,9 @@
         }
         if (FILE_URL) addPreconnect(FILE_URL);
 
-        function prefetchDownload(elem) {
-            if (elem && elem.hasAttribute && !elem.hasAttribute('data-prefetched') && FILE_URL) {
-                const dlUrl = RAW_FILE_URL + (RAW_FILE_URL.includes('?') ? '&' : '?') + 'dl=1';
-                fetch(dlUrl, { method: 'HEAD', mode: 'no-cors', priority: 'high' }).catch(() => {});
-                elem.setAttribute('data-prefetched', 'true');
-            }
-        }
-        // Auto trigger head fetch for smooth instant download
-        setTimeout(() => prefetchDownload(document.createElement('div')), 1000);
-
         const LS = { get(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }, set(k,v){ try { localStorage.setItem(k,v); } catch(e){} }, remove(k){ try { localStorage.removeItem(k); } catch(e){} } };
-        let holdEndAt = 0, lastSavedAt = 0, queuedTarget = null, seekTimer = null, dragTime = null, silentNetRetries = 0;
+        let holdEndAt = 0, lastSavedAt = 0, dragTime = null, silentNetRetries = 0;
         const video = document.getElementById('video-player');
-        video.preload = "auto"; // Ensuring auto preload is active
         const playerContainer = document.getElementById('player-container');
         const globalModalLayer = document.getElementById('global-modal-layer');
         const hud = document.getElementById('hud');
@@ -1376,14 +1447,7 @@
         function handleStall() {
             videoLoader.classList.remove('hidden');
             showCenterControls(false);
-            clearTimeout(stallTimer);
-            // 400ms Debounce handle waiting
-            stallTimer = setTimeout(() => {
-                if (isModalGateActive()) return;
-                if (video.networkState === video.NETWORK_LOADING || video.readyState < video.HAVE_FUTURE_DATA) {
-                    safePlay().catch(() => {});
-                }
-            }, 400);
+            // passive: spinner stays until 'playing'/'canplay'; never force play() here
         }
 
         video.addEventListener('waiting', () => { handleStall(); });
@@ -1480,20 +1544,30 @@
 
         if (!isMobile) {
             playerContainer.addEventListener('mousemove', showHudAndCursor);
+            let clickTimer = null;
+            const skipOK = (e) => !(e.target.closest('button') || e.target.closest('input') || e.target.closest('#timeline-container') || e.target.closest('#error-screen') || e.target.closest('#unlock-btn') || screenLocked);
             playerContainer.addEventListener('click', (e) => {
-                if (e.target.closest('button') || e.target.closest('input') || e.target.closest('#timeline-container') || e.target.closest('#error-screen')) return;
-                togglePlay();
+                if (!skipOK(e)) return;
+                clearTimeout(clickTimer);
+                clickTimer = setTimeout(togglePlay, 250);
+            });
+            playerContainer.addEventListener('dblclick', (e) => {
+                if (!skipOK(e)) return;
+                clearTimeout(clickTimer);
+                const r = playerContainer.getBoundingClientRect();
+                doubleTapSkip((e.clientX - r.left) < r.width / 2 ? 'left' : 'right');
             });
         }
 
         function queueSeek(offset) {
-            if (isNaN(video.duration)) return;
-            queuedTarget = Math.max(0, Math.min(video.duration, (queuedTarget !== null ? queuedTarget : video.currentTime) + offset));
-            const pct = (queuedTarget / video.duration) * 100;
-            progressFilled.style.width = `${pct}%`; progressThumb.style.left = `${pct}%`;
-            timeCurrent.textContent = formatTime(queuedTarget);
-            clearTimeout(seekTimer);
-            seekTimer = setTimeout(() => { const t = queuedTarget; queuedTarget = null; if (t !== null) video.currentTime = t; }, 300);
+            let t = Math.max(0, video.currentTime + offset);
+            if (isFinite(video.duration)) {
+                t = Math.min(video.duration, t);
+                const pct = (t / video.duration) * 100;
+                progressFilled.style.width = `${pct}%`; progressThumb.style.left = `${pct}%`;
+            }
+            timeCurrent.textContent = formatTime(t);
+            video.currentTime = t;
         }
         function seek(offset) { queueSeek(offset); hudAfterPausedSeek(); }
 
@@ -1512,7 +1586,6 @@
         }
 
         function doubleTapSkip(side) {
-            if (isNaN(video.duration)) return;
             queueSeek(side === 'left' ? -10 : 10);
             if (navigator.vibrate) navigator.vibrate(40);
             const z = document.getElementById(side === 'left' ? 'dt-left' : 'dt-right');
@@ -1572,7 +1645,6 @@
             videoLoader.classList.add('hidden');
             showCenterControls(true);
             
-            clearTimeout(loadTimeoutTimer);
             if (isRetrying || pendingSeekPos > 0) {
                 const resumeAt = pendingSeekPos;
                 pendingSeekPos = 0;
@@ -1595,7 +1667,7 @@
 
         video.addEventListener('timeupdate', () => {
             if (video.currentTime > 0) lastGoodTime = video.currentTime;
-            if (!isDragging && queuedTarget === null && video.duration) {
+            if (!isDragging && video.duration) {
                 const pct = (video.currentTime / video.duration) * 100;
                 progressFilled.style.width = `${pct}%`;
                 progressThumb.style.left = `${pct}%`;
@@ -1670,16 +1742,12 @@
                     e.preventDefault(); togglePlay(); break;
                 case 'ArrowLeft':
                     e.preventDefault(); showHudAndCursor();
-                    if (video.duration) {
-                        queueSeek(-10);
-                    }
+                    queueSeek(-10);
                     hudAfterPausedSeek();
                     break;
                 case 'ArrowRight':
                     e.preventDefault(); showHudAndCursor();
-                    if (video.duration) {
-                        queueSeek(+10);
-                    }
+                    queueSeek(+10);
                     hudAfterPausedSeek();
                     break;
                 case 'ArrowUp':
@@ -2129,7 +2197,6 @@
         let audioFailDismissed = false, playedSecs = 0;
         function playInVlc() { wasPlayingBeforePopup = false; pendingAutoplay = false; closeAllPopups(); launchApp('vlc'); }
         setInterval(() => {
-            const playing = !video.paused && !video.ended && !video.seeking && video.readyState >= 3 && !isDownloadViewActive;
             if (!video.paused && !video.ended && !video.muted && video.volume > 0 && !isDownloadViewActive) playedSecs++;
             if (playedSecs < 30 || audioFailDismissed || video.muted || video.volume === 0) return;
             if (document.querySelector('.glass-popup-backdrop.active')) return;
@@ -2251,21 +2318,6 @@
             window.addEventListener('mouseup', stop); playerContainer.addEventListener('mouseleave', stop);
             playerContainer.addEventListener('contextmenu', (e) => { if (active || timer) e.preventDefault(); });
             document.addEventListener('visibilitychange', stop);
-        })();
-
-        // --- Fill screen ---
-        (function () {
-            const b = document.getElementById('btn-fill');
-            b.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const fill = getComputedStyle(video).objectFit !== 'cover';
-                video.style.objectFit = fill ? 'cover' : 'contain';
-                b.classList.toggle('on', fill);
-                showToast(fill ? 'Fill Screen' : 'Original Fit');
-                b.title = fill ? 'Original Fit' : 'Fit to Screen';
-                showHudAndCursor();
-            });
-            b.addEventListener('dblclick', (e) => e.stopPropagation());
         })();
 
         // --- HUD health dot ---
