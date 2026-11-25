@@ -12,13 +12,7 @@ aiohttp
 telegraph
 pymediainfo-pyrofork
 uvloop; sys_platform != 'win32'
-# Other tools
-Pillow
 psutil
 aiofiles
 dnspython>=2.7.0
-jinja2
 rapidfuzz
-
-# Git-based Packages
-git+https://github.com/DreamXBotz/IMDBKit.git@main

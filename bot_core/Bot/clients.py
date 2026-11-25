@@ -2,19 +2,19 @@ import asyncio
 import logging
 from info import API_ID, API_HASH, SLEEP_THRESHOLD
 from pyrogram import Client
-from dreamxbotz.util.config_parser import TokenParser
-from . import multi_clients, work_loads, dreamxbotz
+from bot_core.util.config_parser import TokenParser
+from . import multi_clients, work_loads, boultflix_bot
 
 logger = logging.getLogger(__name__)
 
 async def initialize_clients():
-    multi_clients[0] = dreamxbotz
+    multi_clients[0] = boultflix_bot
     work_loads[0] = 0
     all_tokens = TokenParser().parse_from_env()
     if not all_tokens:
         logger.info("No additional clients found, using default client")
         return
-    
+
     async def start_client(client_id, token):
         try:
             logger.info("Starting - Client %s", client_id)
@@ -35,13 +35,11 @@ async def initialize_clients():
         except Exception:
             logger.error(f"Failed starting Client - {client_id} Error:", exc_info=True)
             return None
-    
+
     results = await asyncio.gather(*[start_client(i, token) for i, token in all_tokens.items()])
-    
-    # Filter out None values in case any client failed to start
     valid_clients = [c for c in results if c is not None]
     multi_clients.update(dict(valid_clients))
-    
+
     if len(multi_clients) > 1:
         import info
         info.MULTI_CLIENT = True

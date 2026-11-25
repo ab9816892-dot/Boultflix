@@ -28,16 +28,16 @@ def is_enabled(value, default: bool = False) -> bool:
 # 1. BOT CREDENTIALS & SESSION
 # ==============================================================================
 # Telegram API credentials from https://my.telegram.org
-API_ID = int(environ.get('API_ID', ''))
+API_ID = int(environ.get('API_ID', '0') or 0)
 API_HASH = environ.get('API_HASH', '')
 
 # Bot token obtained from @BotFather
 BOT_TOKEN = environ.get('BOT_TOKEN', '')
 
 # Pyrogram session name
-SESSION = environ.get('SESSION', 'dreamxbotz_search')
-SESSION_NAME = str(environ.get('SESSION_NAME', 'dreamXBotz'))
-name = str(environ.get('name', 'DREAMXBOTZ'))
+SESSION = environ.get('SESSION', 'boultflix_search')
+SESSION_NAME = str(environ.get('SESSION_NAME', 'BoultFlix'))
+name = str(environ.get('name', 'BOULTFLIX'))
 
 
 # ==============================================================================
@@ -76,9 +76,9 @@ AUTH_USERS = (auth_users + ADMINS) if auth_users else []
 PREMIUM_USER = [int(user) if id_pattern.search(user) else user for user in environ.get('PREMIUM_USER', '').split()]
 
 # Social & Community Links
-GRP_LNK = environ.get('GRP_LNK', 'https://t.me/dreamxbotz')
-OWNER_LNK = environ.get('OWNER_LNK', 'https://t.me/dreamxbotz')
-UPDATE_CHNL_LNK = environ.get('UPDATE_CHNL_LNK', 'https://t.me/dreamxbotz')
+GRP_LNK = environ.get('GRP_LNK', 'https://t.me/BoultflixMovieBot')
+OWNER_LNK = environ.get('OWNER_LNK', 'https://t.me/BoultflixSupportBot')
+UPDATE_CHNL_LNK = environ.get('UPDATE_CHNL_LNK', 'https://t.me/BoultflixMovieBot')
 
 
 # ==============================================================================
@@ -87,7 +87,7 @@ UPDATE_CHNL_LNK = environ.get('UPDATE_CHNL_LNK', 'https://t.me/dreamxbotz')
 # Primary MongoDB Connection URI & Database details
 DATABASE_URI = environ.get('DATABASE_URI', '')
 DATABASE_NAME = environ.get('DATABASE_NAME', 'Cluster0')
-COLLECTION_NAME = environ.get('COLLECTION_NAME', 'dreamcinezone_files')
+COLLECTION_NAME = environ.get('COLLECTION_NAME', 'boultflix_files')
 
 # Secondary MongoDB for multiple DB load balancing
 MULTIPLE_DB = is_enabled(os.environ.get('MULTIPLE_DB', "False"), False)
@@ -182,7 +182,7 @@ BAD_WORDS = {
 # ==============================================================================
 MOVIE_UPDATE_NOTIFICATION = is_enabled(environ.get('MOVIE_UPDATE_NOTIFICATION', "False"), False)
 MOVIE_UPDATE_CHANNEL = int(environ.get('MOVIE_UPDATE_CHANNEL', '-100'))
-DREAMXBOTZ_IMAGE_FETCH = is_enabled(environ.get('DREAMXBOTZ_IMAGE_FETCH', "True"), True)
+IMAGE_FETCH = False
 LINK_PREVIEW = is_enabled(environ.get('LINK_PREVIEW', "False"), False)
 ABOVE_PREVIEW = is_enabled(environ.get('ABOVE_PREVIEW', "True"), True)
 
@@ -201,9 +201,9 @@ LOG_VR_CHANNEL = int(environ.get('LOG_VR_CHANNEL', '-100'))
 VERIFY_IMG = environ.get("VERIFY_IMG", "https://telegra.ph/file/9ecc5d6e4df5b83424896.jpg")
 
 # Tutorial Links
-TUTORIAL = environ.get("TUTORIAL", "https://t.me/dreamxbotz")
-TUTORIAL_2 = environ.get("TUTORIAL_2", "https://t.me/dreamxbotz")
-TUTORIAL_3 = environ.get("TUTORIAL_3", "https://t.me/dreamxbotz")
+TUTORIAL = environ.get("TUTORIAL", "https://t.me/BoultflixMovieBot")
+TUTORIAL_2 = environ.get("TUTORIAL_2", "https://t.me/BoultflixMovieBot")
+TUTORIAL_3 = environ.get("TUTORIAL_3", "https://t.me/BoultflixMovieBot")
 
 # Primary Shortener
 SHORTENER_WEBSITE = environ.get("SHORTENER_WEBSITE", "")

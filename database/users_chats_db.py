@@ -17,8 +17,8 @@ class Database:
     def __init__(self, uri, database_name):
         self._client = motor.motor_asyncio.AsyncIOMotorClient(
             uri,
-            maxPoolSize=50,
-            minPoolSize=10,
+            maxPoolSize=10,
+            minPoolSize=1,
             maxIdleTimeMS=45000,
             connectTimeoutMS=10000,
             serverSelectionTimeoutMS=10000
@@ -214,7 +214,7 @@ class Database:
         else:
             return default.copy()
 
-    async def dreamx_reset_settings(self):
+    async def reset_bot_settings(self):
         try:
             result = await self.grp.update_many(
                 {'settings': {'$exists': True}}, 
@@ -223,6 +223,9 @@ class Database:
             return result.modified_count
         except Exception as e:
             logger.error("Failed to reset group settings: %s", e)
+            return 0
+
+
             raise  
 
     async def disable_chat(self, chat, reason="No Reason"):

@@ -1,7 +1,5 @@
-#Thanks @dreamxBotz for helping in this journey 
 from os import environ
 from typing import Dict, Optional
-
 
 class TokenParser:
     def __init__(self, config_file: Optional[str] = None):

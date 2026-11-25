@@ -5,7 +5,14 @@ import os
 import random
 import string
 from info import ULTRA_FAST_MODE, MAX_LIST_ELM, BAD_WORDS, LONG_IMDB_DESCRIPTION, IS_VERIFY, MAX_B_TN, TUTORIAL, TUTORIAL_2, TUTORIAL_3, LOG_CHANNEL, TMDB_ON_SEARCH
-from imdbkit import IMDBKit # pyrefly: ignore 
+try:
+    from imdbkit import IMDBKit
+except ImportError:
+    class IMDBKit:
+        def search_movie(self, title):
+            return None
+        def get_movie(self, movie_id):
+            return None 
 import asyncio
 from pyrogram.types import Message, InlineKeyboardButton
 from pyrogram.errors import InputUserDeactivated, UserNotParticipant, FloodWait, UserIsBlocked, PeerIdInvalid, ChatAdminRequired
@@ -14,7 +21,7 @@ from typing import Union
 from Script import script
 from database.users_chats_db import db
 from shortzy import Shortzy
-from plugins.Dreamxfutures.Imdbposter import get_movie_detailsx
+from plugins.extras.Imdbposter import get_movie_detailsx
 
 
 logger = logging.getLogger(__name__)

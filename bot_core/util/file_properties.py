@@ -1,12 +1,17 @@
-#Thanks @dreamxBotz for helping in this journey 
 from pyrogram import Client
 from typing import Any, Optional
 from pyrogram.types import Message
 from pyrogram.file_id import FileId
 from pyrogram.raw.types.messages import Messages
-from dreamxbotz.server.exceptions import FIleNotFound
 import logging
+
 logger = logging.getLogger(__name__)
+
+class FIleNotFound(Exception):
+    message = "File not found"
+
+class InvalidHash(Exception):
+    message = "Invalid hash"
 
 async def parse_file_id(message: "Message") -> Optional[FileId]:
     media = get_media_from_message(message)
@@ -47,7 +52,6 @@ def get_media_from_message(message: "Message") -> Any:
         media = getattr(message, attr, None)
         if media:
             return media
-
 
 def get_hash(media_msg: Message) -> str:
     media = get_media_from_message(media_msg)

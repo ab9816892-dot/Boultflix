@@ -1,4 +1,4 @@
-#Join Telegram Channel - @DREAMXBOTZ
+# Boultflix Join Request Handler
 
 from pyrogram import Client, filters
 from pyrogram.types import ChatJoinRequest

@@ -5,7 +5,7 @@ from pyrogram.errors.exceptions.bad_request_400 import UserNotParticipant
 from utils import extract_user, get_file_id
 from datetime import datetime
 from pyrogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from database.ia_filterdb import dreamxbotz_get_movies, dreamxbotz_get_series
+from database.ia_filterdb import get_recent_movies, get_recent_series
 from pyrogram.enums import ParseMode
 
 logger = logging.getLogger(__name__)
@@ -122,9 +122,9 @@ async def who_is(client, message):
     await status_message.delete()
 
 @Client.on_message(filters.private & filters.command("movies"))
-async def dreamxbotz_list_movies(client, message):
+async def list_recent_movies(client, message):
     try:
-        movies = await dreamxbotz_get_movies()
+        movies = await get_recent_movies()
         if not movies:
             return await message.reply("❌ No Recent Movies Found", parse_mode=ParseMode.HTML)       
         msg = "<b>Latest Uploads List ✅</b>\n\n"
@@ -132,13 +132,13 @@ async def dreamxbotz_list_movies(client, message):
         msg += "\n".join(f"<b>{i+1}. {m}</b>" for i, m in enumerate(movies))
         await message.reply(msg[:4096], parse_mode=ParseMode.HTML)
     except Exception as e:
-        logger.error(f"Error in dreamxbotz_list_movies: {e}")
+        logger.error(f"Error in list_recent_movies: {e}")
         await message.reply("An Error Occurred ☹️", parse_mode=ParseMode.HTML)
 
 @Client.on_message(filters.private & filters.command("series"))
-async def dreamxbotz_list_series(client, message):
+async def list_recent_series(client, message):
     try:
-        series_data = await dreamxbotz_get_series()
+        series_data = await get_recent_series()
         if not series_data:
             return await message.reply("❌ No Recent Series Found", parse_mode=ParseMode.HTML)       
         msg = "<b>Latest Uploads List ✅</b>\n\n"
@@ -148,5 +148,5 @@ async def dreamxbotz_list_series(client, message):
             msg += f"<b>{i}. {title} - Season {season_list}</b>\n"
         await message.reply(msg[:4096], parse_mode=ParseMode.HTML)
     except Exception as e:
-        logger.error(f"Error in dreamxbotz_list_series: {e}")
+        logger.error(f"Error in list_recent_series: {e}")
         await message.reply("An Error Occurred ☹️", parse_mode=ParseMode.HTML)

@@ -215,7 +215,7 @@ async def plan(client, message):
 
 
 # Telegram Star Payment Method 👇
-# Credit - @BeingXAnonymous
+
 
 @Client.on_callback_query(filters.regex(r"buy_\d+"))
 async def premium_button(client, callback_query: CallbackQuery):
@@ -233,7 +233,7 @@ async def premium_button(client, callback_query: CallbackQuery):
                     chat_id=callback_query.message.chat.id,
                     title="Premium Subscription",
                     description=f"Pay {amount} Star And Get Premium For {STAR_PREMIUM_PLANS[amount]}",
-                    payload=f"dreamxpremium_{amount}",
+                    payload=f"boultflix_premium_{amount}",
                     currency="XTR",
                     prices=[
                         LabeledPrice(
@@ -255,7 +255,7 @@ async def premium_button(client, callback_query: CallbackQuery):
 @Client.on_pre_checkout_query()
 async def pre_checkout_handler(client, query: PreCheckoutQuery):
     try:
-        if query.payload.startswith("dreamxpremium_"):
+        if query.payload.startswith("boultflix_premium_"):
             await query.answer(ok=True)
         else:
             await query.answer(ok=False, error_message="⚠️ Invalid Purchase Type.")

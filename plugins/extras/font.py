@@ -1,5 +1,5 @@
 import logging
-from plugins.Dreamxfutures.fotnt_string import Fonts
+from plugins.extras.fotnt_string import Fonts
 from pyrogram import Client, filters
 from pyrogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
