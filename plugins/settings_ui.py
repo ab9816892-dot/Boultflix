@@ -436,6 +436,7 @@ async def remove_shortener(client, query):
     suffix = "" if shortner_num == "1" else f"_{'two' if shortner_num == '2' else 'three'}"
     await delete_group_setting(int(grp_id), f'shortner{suffix}')
     await delete_group_setting(int(grp_id), f'api{suffix}')
+    await delete_group_setting(int(grp_id), f'custom_shortner{suffix}')
     await query.answer(f"ꜱʜᴏʀᴛᴇɴᴇʀ {shortner_num} ʀᴇᴍᴏᴠᴇᴅ!", show_alert=True)
     query.data = f'shortner_menu#{shortner_num}#{grp_id}'
     await shortener_menu_handler(client, query)
@@ -495,6 +496,7 @@ async def set_shortener(client, query):
     await key_msg.delete()
     await save_group_settings(int(grp_id), f'shortner{suffix}', url_msg.text)
     await save_group_settings(int(grp_id), f'api{suffix}', key_msg.text)
+    await save_group_settings(int(grp_id), f'custom_shortner{suffix}', True)
     invite_link = await get_invite_link(client, grp_id)
     log_message = f"#New_Shortner_Set\n\n ꜱʜᴏʀᴛɴᴇʀ ɴᴏ - {shortner_num}\nɢʀᴏᴜᴘ ʟɪɴᴋ - `{invite_link}`\n\nɢʀᴏᴜᴘ ɪᴅ : `{grp_id}`\nᴀᴅᴅᴇᴅ ʙʏ - `{user_id}`\nꜱʜᴏʀᴛɴᴇʀ ꜱɪᴛᴇ - {url_msg.text}\nꜱʜᴏʀᴛɴᴇʀ ᴀᴘɪ - `{key_msg.text}`"
     try: 

@@ -4,7 +4,14 @@ import re
 import os
 import random
 import string
-from info import ULTRA_FAST_MODE, MAX_LIST_ELM, BAD_WORDS, LONG_IMDB_DESCRIPTION, IS_VERIFY, MAX_B_TN, TUTORIAL, TUTORIAL_2, TUTORIAL_3, LOG_CHANNEL, TMDB_ON_SEARCH
+from info import (
+    ULTRA_FAST_MODE, MAX_LIST_ELM, BAD_WORDS, LONG_IMDB_DESCRIPTION, IS_VERIFY, MAX_B_TN,
+    TUTORIAL, TUTORIAL_2, TUTORIAL_3, LOG_CHANNEL, TMDB_ON_SEARCH,
+    SHORTENER_WEBSITE, SHORTENER_API, SHORTENER_WEBSITE2, SHORTENER_API2,
+    SHORTENER_WEBSITE3, SHORTENER_API3
+)
+import aiohttp
+from urllib.parse import quote, urlparse
 try:
     from imdbkit import IMDBKit
 except ImportError:
@@ -20,7 +27,10 @@ from pyrogram import enums
 from typing import Union
 from Script import script
 from database.users_chats_db import db
-from shortzy import Shortzy
+try:
+    from shortzy import Shortzy
+except ImportError:
+    Shortzy = None
 from plugins.extras.Imdbposter import get_movie_detailsx
 
 
@@ -428,20 +438,80 @@ async def get_posterx(query, bulk=False, id=False, file=None):
         'url': details.get('tmdb_url')
     }
     
-async def get_shortlink(link, grp_id, is_second_shortener=False, is_third_shortener=False):
+async def get_shortlink(link, grp_id=0, is_second_shortener=False, is_third_shortener=False):
     settings = await get_settings(grp_id)
     if is_third_shortener:             
-        api, site = settings['api_three'], settings['shortner_three']
+        api = settings.get('api_three') or SHORTENER_API3
+        site = settings.get('shortner_three') or SHORTENER_WEBSITE3
+    elif is_second_shortener:
+        api = settings.get('api_two') or SHORTENER_API2
+        site = settings.get('shortner_two') or SHORTENER_WEBSITE2
     else:
-        if is_second_shortener:
-            api, site = settings['api_two'], settings['shortner_two']
-        else:
-            api, site = settings['api'], settings['shortner']
-    shortzy = Shortzy(api, site)
+        api = settings.get('api') or SHORTENER_API
+        site = settings.get('shortner') or SHORTENER_WEBSITE
+
+    if not api or not site:
+        logger.warning(f"get_shortlink: Missing API key or website for grp_id {grp_id}")
+        return link
+
+    clean_site = str(site).strip()
+    if clean_site.startswith(('http://', 'https://')):
+        parsed = urlparse(clean_site)
+        clean_site = parsed.netloc or parsed.path
+    clean_site = clean_site.strip('/')
+
+    if not clean_site:
+        return link
+
+    # 1. Try Shortzy if available
+    if Shortzy is not None:
+        try:
+            shortzy = Shortzy(str(api).strip(), clean_site)
+            try:
+                shortened = await shortzy.convert(link)
+                if shortened and str(shortened).startswith('http'):
+                    return str(shortened).strip()
+            except Exception:
+                try:
+                    shortened = await shortzy.get_quick_link(link)
+                    if shortened and str(shortened).startswith('http'):
+                        return str(shortened).strip()
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.debug(f"Shortzy convert failed, falling back to direct API: {e}")
+
+    # 2. Direct HTTP API calls via aiohttp
     try:
-        link = await shortzy.convert(link)
-    except Exception:
-        link = await shortzy.get_quick_link(link)
+        encoded_url = quote(link, safe='')
+        timeout = aiohttp.ClientTimeout(total=10)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            # Shareus custom API format
+            if "shareus" in clean_site.lower():
+                shareus_url = f"https://api.shareus.io/easy_api?key={str(api).strip()}&link={encoded_url}"
+                async with session.get(shareus_url) as resp:
+                    if resp.status == 200:
+                        txt = (await resp.text()).strip()
+                        if txt.startswith("http"):
+                            return txt
+
+            # Standard Adlinkfly API format (Droplink, Gplinks, Modijiurl, etc.)
+            api_url = f"https://{clean_site}/api?api={str(api).strip()}&url={encoded_url}"
+            async with session.get(api_url) as resp:
+                if resp.status == 200:
+                    try:
+                        data = await resp.json(content_type=None)
+                        if isinstance(data, dict):
+                            short_url = data.get('shortenedUrl') or data.get('url') or data.get('link')
+                            if short_url and str(short_url).startswith('http'):
+                                return str(short_url).strip()
+                    except Exception:
+                        txt = (await resp.text()).strip()
+                        if txt.startswith("http"):
+                            return txt
+    except Exception as e:
+        logger.error(f"Direct shortlink API request failed for site {clean_site}: {e}")
+
     return link
 
 async def get_settings(group_id):

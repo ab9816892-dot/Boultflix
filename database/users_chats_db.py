@@ -201,13 +201,13 @@ class Database:
             saved = chat['settings']
             res = default.copy()
             res.update(saved)
-            if not saved.get('custom_shortner'):
+            if not saved.get('custom_shortner') and not saved.get('shortner'):
                 res['shortner'] = SHORTENER_WEBSITE
                 res['api'] = SHORTENER_API
-            if not saved.get('custom_shortner_two'):
+            if not saved.get('custom_shortner_two') and not saved.get('shortner_two'):
                 res['shortner_two'] = SHORTENER_WEBSITE2
                 res['api_two'] = SHORTENER_API2
-            if not saved.get('custom_shortner_three'):
+            if not saved.get('custom_shortner_three') and not saved.get('shortner_three'):
                 res['shortner_three'] = SHORTENER_WEBSITE3
                 res['api_three'] = SHORTENER_API3
             return res
@@ -336,8 +336,16 @@ class Database:
                 return second_time < pastDate
         return False
    
-    async def create_verify_id(self, user_id: int, hash):
-        res = {"user_id": user_id, "hash":hash, "verified":False}
+    async def create_verify_id(self, user_id: int, hash: str, grp_id: int = 0, file_id: str = "", level: int = 1):
+        res = {
+            "user_id": int(user_id),
+            "hash": str(hash),
+            "verified": False,
+            "grp_id": int(grp_id),
+            "file_id": str(file_id),
+            "level": int(level),
+            "created_at": datetime.datetime.now(tz=TZ)
+        }
         return await self.verify_id.insert_one(res)
 
     async def get_verify_id_info(self, user_id: int, hash):

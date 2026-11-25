@@ -6,6 +6,7 @@ import random
 import asyncio
 import string
 import sys
+import pytz
 from .pmfilter import auto_filter 
 from Script import script
 from bot_core.Bot import boultflix_bot
@@ -30,6 +31,17 @@ from utils import get_settings, save_group_settings, is_subscribed, is_req_subsc
 
 logger = logging.getLogger(__name__)
 
+def is_alphanumeric(string):
+    return bool(re.match('^[a-zA-Z0-9 ]*$', str(string)))
+
+async def log_error(client, text):
+    logger.error(text)
+    if LOG_CHANNEL and LOG_CHANNEL not in (0, -100):
+        try:
+            await client.send_message(LOG_CHANNEL, str(text)[:4000])
+        except Exception:
+            pass
+
 BATCH_FILES = {}
 REQUEST_INVITE_LINK_CACHE: dict[int, str] = {}
 
@@ -45,35 +57,64 @@ async def start(client, message):
                 pass
         m = message
         if len(m.command) == 2 and m.command[1].startswith(('notcopy', 'sendall')):
-            _, userid, verify_id, file_id = m.command[1].split("_", 3)
-            user_id = int(userid)
-            grp_id = temp.VERIFICATIONS.get(user_id, 0)
-            settings = await get_settings(grp_id)         
-            verify_id_info = await db.get_verify_id_info(user_id, verify_id)
-            if not verify_id_info or verify_id_info["verified"]:
-                return await message.reply(script.LINK_EXPIRED_TXT)  
-
-            if await db.user_verified(user_id):
-                key = "third_time_verified"
-            else:
-                key = "second_time_verified" if await db.is_user_verified(user_id) else "last_verified"
-            current_time = datetime.now(tz=TZ)
-            await db.update_notcopy_user(user_id, {key:current_time})
-            await db.update_verify_id_info(user_id, verify_id, {"verified":True})
-            
-            if key == "third_time_verified": 
-                num = 3 
-                msg = script.THIRDT_VERIFY_COMPLETE_TEXT
-            else: 
-                num =  2 if key == "second_time_verified" else 1 
-                msg = script.SECOND_VERIFY_COMPLETE_TEXT if key == "second_time_verified" else script.VERIFY_COMPLETE_TEXT
-            
-            log_channel = settings.get('log') if settings and settings.get('log') else LOG_CHANNEL
             try:
-                await client.send_message(log_channel, script.VERIFIED_LOG_TEXT.format(m.from_user.mention, user_id, datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d %B %Y'), num))
-            except Exception as e:
-                logger.error(f"Failed to log verification: {e}")
-            
+                parts = m.command[1].split("_", 3)
+                if len(parts) < 4:
+                    return await message.reply("<b>⚠️ ɪɴᴠᴀʟɪᴅ ᴠᴇʀɪꜰɪᴄᴀᴛɪᴏɴ ʟɪɴᴋ.</b>")
+                _, userid, verify_id, file_id = parts
+                user_id = int(userid)
+            except Exception:
+                return await message.reply("<b>⚠️ ɪɴᴠᴀʟɪᴅ ᴠᴇʀɪꜰɪᴄᴀᴛɪᴏɴ ʟɪɴᴋ.</b>")
+
+            if m.from_user.id != user_id:
+                return await message.reply("<b>⚠️ ʏᴏᴜ ᴄᴀɴɴᴏᴛ ᴄʟᴀɪᴍ ꜱᴏᴍᴇᴏɴᴇ ᴇʟꜱᴇ'ꜱ ᴠᴇʀɪꜰɪᴄᴀᴛɪᴏɴ!</b>")
+
+            verify_id_info = await db.get_verify_id_info(user_id, verify_id)
+            if not verify_id_info or verify_id_info.get("verified"):
+                return await message.reply(script.LINK_EXPIRED_TXT)
+
+            grp_id = verify_id_info.get("grp_id") or temp.VERIFICATIONS.get(user_id, 0)
+            settings = await get_settings(grp_id)
+            level = verify_id_info.get("level")
+
+            current_time = datetime.now(tz=TZ)
+            if level == 3:
+                key = "third_time_verified"
+                num = 3
+                msg = script.THIRDT_VERIFY_COMPLETE_TEXT
+            elif level == 2:
+                key = "second_time_verified"
+                num = 2
+                msg = script.SECOND_VERIFY_COMPLETE_TEXT
+            elif level == 1:
+                key = "last_verified"
+                num = 1
+                msg = script.VERIFY_COMPLETE_TEXT
+            else:
+                if await db.user_verified(user_id):
+                    key = "third_time_verified"
+                    num = 3
+                    msg = script.THIRDT_VERIFY_COMPLETE_TEXT
+                elif await db.is_user_verified(user_id):
+                    key = "second_time_verified"
+                    num = 2
+                    msg = script.SECOND_VERIFY_COMPLETE_TEXT
+                else:
+                    key = "last_verified"
+                    num = 1
+                    msg = script.VERIFY_COMPLETE_TEXT
+
+            await db.update_notcopy_user(user_id, {key: current_time})
+            await db.update_verify_id_info(user_id, verify_id, {"verified": True})
+
+            log_channel = settings.get('log') if settings and settings.get('log') else LOG_CHANNEL
+            if log_channel and log_channel not in (0, -100):
+                try:
+                    date_str = datetime.now(pytz.timezone('Asia/Kolkata')).strftime('%d %B %Y')
+                    await client.send_message(log_channel, script.VERIFIED_LOG_TEXT.format(m.from_user.mention, user_id, date_str, num))
+                except Exception as e:
+                    logger.error(f"Failed to log verification: {e}")
+
             is_sendall = m.command[1].startswith('sendall')
             if is_sendall:
                 verifiedfiles = f"https://telegram.me/{temp.U_NAME}?start=allfiles_{grp_id}_{file_id}"
@@ -89,14 +130,14 @@ async def start(client, message):
                 reply_markup=InlineKeyboardMarkup(btn_complete),
                 parse_mode=enums.ParseMode.HTML
             )
-            
+
             async def _delete_msg(msg_to_delete, delay):
                 await asyncio.sleep(delay)
                 try:
                     await msg_to_delete.delete()
                 except Exception:
                     pass
-            
+
             asyncio.create_task(_delete_msg(dlt, 300))
             return
 
@@ -431,81 +472,88 @@ async def start(client, message):
             try:
                 grp_id = int(grp_id)
                 settings = await get_settings(grp_id)
-                is_second_shortener = await db.use_second_shortener(user_id, settings.get('verify_time', TWO_VERIFY_GAP)) 
-                is_third_shortener = await db.use_third_shortener(user_id, settings.get('third_verify_time', THREE_VERIFY_GAP))
-                # reset after 3rd expires -> back to 1st
-                if is_third_shortener:
-                    try:
-                        await db.update_notcopy_user(user_id, {"last_verified": None, "second_time_verified": None, "third_time_verified": None})
-                        user_verified = False
-                        is_second_shortener = False
-                        is_third_shortener = False
-                    except Exception:
-                        pass
-                
-                if settings.get("is_verify", IS_VERIFY) and (not user_verified or is_second_shortener or is_third_shortener):
-                    verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
-                    await db.create_verify_id(user_id, verify_id)
-                    temp.VERIFICATIONS[user_id] = grp_id
-                    if message.command[1].startswith('allfiles'):
-                        verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=sendall_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
-                    else:
-                        verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=notcopy_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
-                    if is_third_shortener:
-                        howtodownload = settings.get('tutorial_3', TUTORIAL_3)
-                    else:
-                        howtodownload = settings.get('tutorial_2', TUTORIAL_2) if is_second_shortener else settings.get('tutorial', TUTORIAL)
-                    buttons = [[
-                        InlineKeyboardButton(text="♻ ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪꜰʏ ♻", url=verify)
-                    ],[
-                        InlineKeyboardButton(text="⁉ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪꜰʏ ⁉", url=howtodownload)
-                    ]]
-                    reply_markup=InlineKeyboardMarkup(buttons)
-                    if await db.user_verified(user_id): 
-                        msg = script.THIRDT_VERIFICATION_TEXT
-                    else:            
-                        msg = script.SECOND_VERIFICATION_TEXT if is_second_shortener else script.VERIFICATION_TEXT
-                    n=await m.reply_text(
-                        text=msg.format(message.from_user.mention),
-                        protect_content = True,
-                        reply_markup=reply_markup,
-                        parse_mode=enums.ParseMode.HTML
-                    )
-                    if not user_verified or is_second_shortener or is_third_shortener:
+                if settings.get("is_verify", IS_VERIFY):
+                    user_verified = await db.is_user_verified(user_id)
+                    is_second_shortener = await db.use_second_shortener(user_id, settings.get('verify_time', TWO_VERIFY_GAP))
+                    is_third_shortener = await db.use_third_shortener(user_id, settings.get('third_verify_time', THREE_VERIFY_GAP))
+
+                    needs_verify = False
+                    verify_level = 1
+
+                    if not user_verified:
+                        needs_verify = True
+                        verify_level = 1
+                    elif is_second_shortener:
+                        needs_verify = True
+                        verify_level = 2
+                    elif is_third_shortener:
+                        needs_verify = True
+                        verify_level = 3
+
+                    if needs_verify:
                         verify_id = ''.join(random.choices(string.ascii_uppercase + string.digits, k=7))
-                        await db.create_verify_id(user_id, verify_id)
+                        await db.create_verify_id(user_id, verify_id, grp_id=grp_id, file_id=file_id, level=verify_level)
                         temp.VERIFICATIONS[user_id] = grp_id
-                        if message.command[1].startswith('allfiles'):
-                            verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=sendall_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
-                        else:
-                            verify = await get_shortlink(f"https://telegram.me/{temp.U_NAME}?start=notcopy_{user_id}_{verify_id}_{file_id}", grp_id, is_second_shortener, is_third_shortener)
-                        if is_third_shortener:
-                            howtodownload = settings.get('tutorial_3', TUTORIAL_3)
-                        else:
-                            howtodownload = settings.get('tutorial_2', TUTORIAL_2) if is_second_shortener else settings.get('tutorial', TUTORIAL)
-                        buttons = [[
-                            InlineKeyboardButton(text="♻️ ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪꜰʏ ♻️", url=verify)
-                        ],[
-                            InlineKeyboardButton(text="⁉️ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪꜰʏ ⁉️", url=howtodownload)
-                        ]]
-                        reply_markup=InlineKeyboardMarkup(buttons)
-                        if await db.user_verified(user_id): 
-                            msg = script.THIRDT_VERIFICATION_TEXT
-                        else:            
-                            msg = script.SECOND_VERIFICATION_TEXT if is_second_shortener else script.VERIFICATION_TEXT
-                        n=await m.reply_text(
-                            text=msg.format(message.from_user.mention),
-                            protect_content = True,
-                            reply_markup=reply_markup,
-                            parse_mode=enums.ParseMode.HTML
+
+                        is_sendall = message.command[1].startswith('allfiles')
+                        prefix = 'sendall' if is_sendall else 'notcopy'
+                        target_url = f"https://telegram.me/{temp.U_NAME}?start={prefix}_{user_id}_{verify_id}_{file_id}"
+
+                        verify_url = await get_shortlink(
+                            target_url,
+                            grp_id,
+                            is_second_shortener=(verify_level == 2),
+                            is_third_shortener=(verify_level == 3)
                         )
-                        await asyncio.sleep(300) 
-                        await n.delete()
-                        await m.delete()
+
+                        if verify_level == 3:
+                            howtodownload = settings.get('tutorial_3', TUTORIAL_3)
+                            msg = script.THIRDT_VERIFICATION_TEXT
+                        elif verify_level == 2:
+                            howtodownload = settings.get('tutorial_2', TUTORIAL_2)
+                            msg = script.SECOND_VERIFICATION_TEXT
+                        else:
+                            howtodownload = settings.get('tutorial', TUTORIAL)
+                            msg = script.VERIFICATION_TEXT
+
+                        buttons = [
+                            [InlineKeyboardButton(text="♻ ᴄʟɪᴄᴋ ʜᴇʀᴇ ᴛᴏ ᴠᴇʀɪꜰʏ ♻", url=verify_url)],
+                            [InlineKeyboardButton(text="⁉ ʜᴏᴡ ᴛᴏ ᴠᴇʀɪꜰʏ ⁉", url=howtodownload)]
+                        ]
+                        reply_markup = InlineKeyboardMarkup(buttons)
+
+                        photo_url = getattr(script, 'VERIFY_IMG', None) or VERIFY_IMG
+                        try:
+                            n = await m.reply_photo(
+                                photo=photo_url,
+                                caption=msg.format(message.from_user.mention),
+                                protect_content=True,
+                                reply_markup=reply_markup,
+                                parse_mode=enums.ParseMode.HTML
+                            )
+                        except Exception:
+                            n = await m.reply_text(
+                                text=msg.format(message.from_user.mention),
+                                protect_content=True,
+                                reply_markup=reply_markup,
+                                parse_mode=enums.ParseMode.HTML
+                            )
+
+                        async def _auto_del_verify(reply_msg, cmd_msg, delay=300):
+                            await asyncio.sleep(delay)
+                            try:
+                                await reply_msg.delete()
+                            except Exception:
+                                pass
+                            try:
+                                await cmd_msg.delete()
+                            except Exception:
+                                pass
+
+                        asyncio.create_task(_auto_del_verify(n, m, 300))
                         return
             except Exception as e:
                 logger.error("Error In Verification: %s", e)
-                pass
 
         files_ = await file_details_task
         if data.startswith("allfiles"):
@@ -553,11 +601,18 @@ async def start(client, message):
                         )
                     send_allfiles.append(msg)
                 k = await client.send_message(chat_id=message.from_user.id, text=script.DEL_MSG.format(get_time(DELETE_TIME)), parse_mode=enums.ParseMode.HTML)
-
-                await asyncio.sleep(DELETE_TIME)
-                if send_allfiles:
-                    await client.delete_messages(chat_id=message.from_user.id, message_ids=[x.id for x in send_allfiles])
-                await k.edit_text("<b>ʏᴏᴜʀ ᴀʟʟ ᴠɪᴅᴇᴏꜱ/ꜰɪʟᴇꜱ ᴀʀᴇ ᴅᴇʟᴇᴛᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ !\nᴋɪɴᴅʟʏ ꜱᴇᴀʀᴄʜ ᴀɢᴀɪɴ</b>")
+                async def _auto_del_batch(target_msgs, notice_msg, delay):
+                    await asyncio.sleep(delay)
+                    if target_msgs:
+                        try:
+                            await client.delete_messages(chat_id=message.from_user.id, message_ids=[x.id for x in target_msgs if x])
+                        except Exception:
+                            pass
+                    try:
+                        await notice_msg.edit_text("<b>ʏᴏᴜʀ ᴀʟʟ ᴠɪᴅᴇᴏꜱ/ꜰɪʟᴇꜱ ᴀʀᴇ ᴅᴇʟᴇᴛᴇᴅ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ !\nᴋɪɴᴅʟʏ ꜱᴇᴀʀᴄʜ ᴀɢᴀɪɴ</b>")
+                    except Exception:
+                        pass
+                asyncio.create_task(_auto_del_batch(send_allfiles, k, DELETE_TIME))
                 return
             except MediaEmpty:
                 await message.reply('<b>⚠️ ꜰɪʟᴇ ɪꜱ ᴄᴜʀʀᴇɴᴛʟʏ ᴜɴᴀᴠᴀɪʟᴀʙʟᴇ. ᴘʟᴇᴀꜱᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ!</b>')
@@ -610,13 +665,21 @@ async def start(client, message):
                 await msg.edit_caption(f_caption, reply_markup=InlineKeyboardMarkup(btn))
                 # FIXED: removed 
                 k = await msg.reply(script.DEL_MSG.format(get_time(DELETE_TIME)), parse_mode=enums.ParseMode.HTML)
-                await asyncio.sleep(DELETE_TIME)
-                await msg.delete()
-                await k.edit_text(
-            "<b>Yᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n"
-            "Tᴏ ᴘʀᴏᴛᴇᴄᴛ ᴏᴜʀ ʙᴏᴛ ғʀᴏᴍ ᴄᴏᴘʏʀɪɢʜᴛ 🥀\n"
-            "Iғ ʏᴏᴜ ᴅɪᴅɴ'ᴛ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴇʟsᴇ, ᴋɪɴᴅʟʏ ʀᴇǫᴜᴇsᴛ ᴛʜᴇ ғɪʟᴇ ᴏɴᴄᴇ ᴀɢᴀɪɴ 🫶🏻🩵</b>"
-        )
+                async def _auto_del_single(target_msg, notice_msg, delay):
+                    await asyncio.sleep(delay)
+                    try:
+                        await target_msg.delete()
+                    except Exception:
+                        pass
+                    try:
+                        await notice_msg.edit_text(
+                            "<b>Yᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n"
+                            "Tᴏ ᴘʀᴏᴛᴇᴄᴛ ᴏᴜʀ ʙᴏᴛ ғʀᴏᴍ ᴄᴏᴘʏʀɪɢʜᴛ 🥀\n"
+                            "Iғ ʏᴏᴜ ᴅɪᴅɴ'ᴛ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴇʟsᴇ, ᴋɪɴᴅʟʏ ʀᴇǫᴜᴇsᴛ ᴛʜᴇ ғɪʟᴇ ᴏɴᴄᴇ ᴀɢᴀɪɴ 🫶🏻🩵</b>"
+                        )
+                    except Exception:
+                        pass
+                asyncio.create_task(_auto_del_single(msg, k, DELETE_TIME))
                 return
             except MediaEmpty:
                 return await message.reply('<b>⚠️ ꜰɪʟᴇ ɪꜱ ᴄᴜʀʀᴇɴᴛʟʏ ᴜɴᴀᴠᴀɪʟᴀʙʟᴇ. ᴘʟᴇᴀꜱᴇ ᴛʀʏ ᴀɢᴀɪɴ ʟᴀᴛᴇʀ!</b>')
@@ -660,13 +723,21 @@ async def start(client, message):
             )
         
         k = await msg.reply(script.DEL_MSG.format(get_time(DELETE_TIME)), parse_mode=enums.ParseMode.HTML)
-        await asyncio.sleep(DELETE_TIME)
-        await msg.delete()
-        await k.edit_text(
-            "<b>Yᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n"
-            "Tᴏ ᴘʀᴏᴛᴇᴄᴛ ᴏᴜʀ ʙᴏᴛ ғʀᴏᴍ ᴄᴏᴘʏʀɪɢʜᴛ 🥀\n"
-            "Iғ ʏᴏᴜ ᴅɪᴅɴ'ᴛ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴇʟsᴇ, ᴋɪɴᴅʟʏ ʀᴇǫᴜᴇsᴛ ᴛʜᴇ ғɪʟᴇ ᴏɴᴄᴇ ᴀɢᴀɪɴ 🫶🏻🩵</b>"
-        )
+        async def _auto_del_single_main(target_msg, notice_msg, delay):
+            await asyncio.sleep(delay)
+            try:
+                await target_msg.delete()
+            except Exception:
+                pass
+            try:
+                await notice_msg.edit_text(
+                    "<b>Yᴏᴜʀ ᴠɪᴅᴇᴏ / ꜰɪʟᴇ ɪꜱ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅᴇʟᴇᴛᴇᴅ !!\n"
+                    "Tᴏ ᴘʀᴏᴛᴇᴄᴛ ᴏᴜʀ ʙᴏᴛ ғʀᴏᴍ ᴄᴏᴘʏʀɪɢʜᴛ 🥀\n"
+                    "Iғ ʏᴏᴜ ᴅɪᴅɴ'ᴛ ғᴏʀᴡᴀʀᴅ ɪᴛ ᴀɴʏᴡʜᴇʀᴇ ᴇʟsᴇ, ᴋɪɴᴅʟʏ ʀᴇǫᴜᴇsᴛ ᴛʜᴇ ғɪʟᴇ ᴏɴᴄᴇ ᴀɢᴀɪɴ 🫶🏻🩵</b>"
+                )
+            except Exception:
+                pass
+        asyncio.create_task(_auto_del_single_main(msg, k, DELETE_TIME))
         return
     except StopPropagation:
         raise
@@ -1464,18 +1535,22 @@ async def verify(client, message):
     try:
         chat_type = message.chat.type
         if chat_type == enums.ChatType.PRIVATE:
-            return await message.reply_text("ᴛʜɪs ᴄᴏᴍᴍᴀɴᴅ ᴡᴏʀᴋs ᴏɴʟʏ ɪɴ ɢʀᴏᴜᴘs!")
-        if chat_type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
+            grpid = 0
+        elif chat_type in [enums.ChatType.GROUP, enums.ChatType.SUPERGROUP]:
             grpid = message.chat.id
-            command_text = message.text.split(' ')[1] if len(message.text.split(' ')) > 1 else None
-            if command_text == "off":
-                await save_group_settings(grpid, 'is_verify', False)
-                return await message.reply_text("✓ ᴠᴇʀɪꜰʏ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅɪsᴀʙʟᴇᴅ.")
-            elif command_text == "on":
-                await save_group_settings(grpid, 'is_verify', True)
-                return await message.reply_text("✗ ᴠᴇʀɪꜰʏ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴇɴᴀʙʟᴇᴅ.")
-            else:
-                return await message.reply_text("ʜɪ, ᴛᴏ ᴇɴᴀʙʟᴇ ᴠᴇʀɪꜰʏ, ᴜsᴇ <code>/verify on</code> ᴀɴᴅ ᴛᴏ ᴅɪsᴀʙʟᴇ ᴠᴇʀɪꜰʏ, ᴜsᴇ <code>/verify off</code>.")
+        else:
+            return
+        command_text = message.text.split(' ')[1].lower() if len(message.text.split(' ')) > 1 else None
+        if command_text == "off":
+            await save_group_settings(grpid, 'is_verify', False)
+            scope = "ɢʟᴏʙᴀʟʟʏ" if grpid == 0 else "ꜰᴏʀ ᴛʜɪꜱ ɢʀᴏᴜᴘ"
+            return await message.reply_text(f"✓ ᴠᴇʀɪꜰʏ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴅɪꜱᴀʙʟᴇᴅ {scope}.")
+        elif command_text == "on":
+            await save_group_settings(grpid, 'is_verify', True)
+            scope = "ɢʟᴏʙᴀʟʟʏ" if grpid == 0 else "ꜰᴏʀ ᴛʜɪꜱ ɢʀᴏᴜᴘ"
+            return await message.reply_text(f"✓ ᴠᴇʀɪꜰʏ ꜱᴜᴄᴄᴇꜱꜱꜰᴜʟʟʏ ᴇɴᴀʙʟᴇᴅ {scope}.")
+        else:
+            return await message.reply_text("ʜɪ, ᴛᴏ ᴇɴᴀʙʟᴇ ᴠᴇʀɪꜰʏ, ᴜꜱᴇ <code>/verify on</code> ᴀɴᴅ ᴛᴏ ᴅɪꜱᴀʙʟᴇ ᴠᴇʀɪꜰʏ, ᴜꜱᴇ <code>/verify off</code>.")
     except Exception as e:
         logger.error("Error: %s", e)
         await message.reply_text(f"Error: {e}")
