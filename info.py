@@ -34,9 +34,6 @@ API_HASH = environ.get('API_HASH', '')
 # Bot token obtained from @BotFather
 BOT_TOKEN = environ.get('BOT_TOKEN', '')
 
-# Main Bot Username for multi-bot shared file delivery (optional)
-MAIN_BOT_USERNAME = environ.get('MAIN_BOT_USERNAME', '').strip().lstrip('@')
-
 # Pyrogram session name
 SESSION = environ.get('SESSION', 'boultflix_search')
 SESSION_NAME = str(environ.get('SESSION_NAME', 'BoultFlix'))
